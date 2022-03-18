@@ -108,7 +108,7 @@ export class MQProvider {
       this.sock.routingId = randomUUID(cryptoOptions)
       await this.sock.bind(`${this.protocol}://*:${this.port}`)
 
-      this.routerQueue = new SimpleQueueProvider(routerQueueEventName)
+      this.routerQueue = new SimpleQueueProvider(dealerQueueEventName)
       this.routerQueueOn(jobClassResp)
       this.isQueue = true
 
