@@ -1,0 +1,1 @@
+export const minToMs = (min: number): number => min * 60000

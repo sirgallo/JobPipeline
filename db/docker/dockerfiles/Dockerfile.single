@@ -1,0 +1,26 @@
+FROM mongo:latest
+
+RUN apt-get update
+RUN apt-get install -y \
+    curl  \
+    screen 
+
+WORKDIR /usr
+
+RUN mkdir ./tls
+RUN mkdir ./configs
+RUN mkdir ./data
+RUN mkdir ./scripts
+RUN mkdir ./logs
+RUN mkdir ./run
+
+RUN touch ./logs/mongod.log
+RUN chmod 700 ./logs/mongod.log
+
+COPY ./db/configs/mongod/mongo.single.conf ./configs
+COPY ./db/configs/mongo-init.sh ./scripts
+RUN chmod 700 ./scripts/mongo-init.sh
+
+EXPOSE 27017
+
+RUN screen -S initMongo -dm /usr/bin/mongod -f /usr/configs/mongo.single.conf --quiet

@@ -1,0 +1,31 @@
+FROM mongo:latest
+
+RUN apt-get update
+RUN apt-get install -y curl
+
+WORKDIR /usr
+
+RUN mkdir ./tls
+RUN mkdir ./scripts
+RUN mkdir ./configs
+RUN mkdir ./data
+RUN mkdir ./logs
+RUN mkdir ./run
+
+RUN touch ./logs/mongod.log
+RUN chmod 700 ./logs/mongod.log
+
+COPY ./db/configs/mongod/mongod.replica2.conf ./configs
+COPY ./db/configs/mongo-init.sh ./scripts
+RUN chmod 700 ./scripts/mongo-init.sh
+COPY ./db/configs/rs-init.sh ./scripts
+RUN chmod 700 ./scripts/rs-init.sh
+
+RUN openssl req -newkey rsa:2048 -new -x509 -days 365 -nodes -out ./tls/devdbreplica2.crt -keyout ./tls/devdbreplica2.key \
+  -subj "/C=US/ST=MA/L=Boston/O=DevTeam/OU=IT/CN=sirgallo.com" 
+RUN cat ./tls/devdbreplica2.key ./tls/devdbreplica2.crt > ./tls/devdbreplica2.pem
+RUN chmod 600 ./tls/devdbreplica2.key
+
+EXPOSE 27017
+
+CMD [ "screen", "-S", "initMongo", "-dm", "/usr/bin/mongod", "--bind_ip_all", "--replSet", "dev_replication_set", "--config=/usr/configs/mongod.replica2.conf", "--quiet"]
