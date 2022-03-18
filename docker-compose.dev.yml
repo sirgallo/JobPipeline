@@ -1,6 +1,6 @@
 version: "3"
 services:
-  gateway:
+  devgateway:
     image: dev_gateway_img
     build:
       context: .
@@ -35,7 +35,32 @@ services:
       dev_app_layer:
       dev_gateway_layer:
     depends_on:
-      - gateway
+      - devgateway
+  devworker:
+    image: dev_worker_img
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    ports:
+      - '5679'
+    expose:
+      - '8765'
+    environment:
+      - NODE_ENV=docker
+      - NODE_OPTIONS="--max-old-space-size=4096"
+    volumes:
+      - workerdata:/usr/src/data
+    networks:
+        dev_api_layer:
+        dev_db_layer:
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:5679/poll || kill 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - devgateway
 networks:
   dev_api_layer: 
     driver: bridge

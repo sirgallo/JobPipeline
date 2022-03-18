@@ -9,5 +9,11 @@ export const serverConfiguration: ServerConfiguration<Record<string, IServerConf
     name: 'Gateway API',
     numOfCpus: 1,
     version: '0.1'
+  },
+  worker: {
+    port: 5679,
+    name: 'Worker API',
+    numOfCpus: 1,
+    version: '0.1'
   }
 }

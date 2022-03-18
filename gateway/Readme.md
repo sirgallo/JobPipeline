@@ -1,6 +1,6 @@
 # Gateway
 
-Authenticates all requests, adds jobs to internal mongo db, pushes job to worker machine
+Authenticates all requests, adds jobs to internal mongo db, pushes jobs to worker machine
 
 ## routes
 
@@ -8,11 +8,11 @@ Authenticates all requests, adds jobs to internal mongo db, pushes job to worker
 *POST*
 ```json
 {
-  "firstName": "Nick",
-  "lastName": "Gallo",
-  "email": "nickgallo97@gmail.com",
-  "password": "test",
-  "organization": "visible",
+  "firstName": "any",
+  "lastName": "any",
+  "email": "any@gmail.com",
+  "password": "testPass",
+  "organization": "test",
   "accessControlLevel": "Dev"
 }
 ```
@@ -21,8 +21,8 @@ Authenticates all requests, adds jobs to internal mongo db, pushes job to worker
 *POST*
 ```json
 {
-  "email": "nickgallo97@gmail.com",
-  "password": "test"
+  "email": "any@gmail.com",
+  "password": "testPass"
 }
 ```
 
@@ -31,14 +31,14 @@ Authenticates all requests, adds jobs to internal mongo db, pushes job to worker
 ```json
 {
   "user": {
-    "email": "nickgallo97@gmail.com"
+    "email": "any@gmail.com"
   },
   "query": {
     "query": "Just testing...",
-    "organization": "visible",
+    "organization": "test",
     "dbType": "MariaDb",
-    "lifeCycle": "Not Started"
+    "lifeCycle": "Not Started" | null
   },
-  "origToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImJhNGVlNDEyLWI1NDktNDg0YS05YmFmLTA3MTFjYWU4YjQ5OSIsImlhdCI6MTY0NTQ1MzY4MSwiZXhwIjoxNjQ1NTQwMDgxfQ.eVooSgS0-cGtEzD6rfTrNb_GyGHC5l9QLZI2HdNPon0"
+  "origToken": "<token>"
 }
 ```

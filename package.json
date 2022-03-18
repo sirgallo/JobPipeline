@@ -4,7 +4,8 @@
   "scripts": {
     "build:all": "grunt --gruntfile gruntfile.js",
     "start:baseServer": "node ./dist/core/baseServer/StartService.js --color",
-    "start:gateway": "node ./dist/gateway/StartGatewayService.js --color"
+    "start:gateway": "node ./dist/gateway/StartGatewayService.js --color",
+    "start:worker": "node ./dist/worker/StartWorkerService.js --color"
   },
   "author": "Sir Gallo",
   "license": "ISC",
@@ -15,11 +16,13 @@
     "cluster": "^0.7.7",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
+    "csurf": "^1.11.0",
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "fs": "^0.0.1-security",
     "grunt": "^1.4.1",
     "grunt-ts": "^6.0.0-beta.22",
+    "helmet": "^5.0.2",
     "http": "^0.0.1-security",
     "http-errors": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
@@ -49,6 +52,7 @@
     "@core": "./dist/core",
     "@dbconfigs": "./dist/configs",
     "@db": "./dist/db",
-    "@gateway": "./dist/gateway"
+    "@gateway": "./dist/gateway",
+    "@worker": "./dist/worker"
   }
 }

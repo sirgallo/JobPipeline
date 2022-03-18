@@ -77,7 +77,7 @@ export class MQProvider {
       this.isQueue = true
       
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
-      this.setIntervalQueue(200)
+      this.setIntervalQueue(this.routerQueue, 200)
 
       //  message comes in as buffer with two frames
       //  frame 1 -> server id
@@ -172,8 +172,8 @@ export class MQProvider {
     ]
   }
 
-  private setIntervalQueue(timeout: number) {
-    setInterval(() => this.routerQueue.emitEvent(), timeout)
+  private setIntervalQueue(queue: SimpleQueueProvider, timeout: number) {
+    setInterval(() => queue.emitEvent(), timeout)
   }
 
   close() {

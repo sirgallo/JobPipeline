@@ -23,7 +23,8 @@
       "@baseServer/*": ["core/baseServer/*"],
       "@dbconfigs/*": ["db/configs/*"],
       "@db/*": ["db/*"],
-      "@gateway/*": ["gateway/*"]
+      "@gateway/*": ["gateway/*"],
+      "@worker/*": ["worker/*"]
     }
   }
 }

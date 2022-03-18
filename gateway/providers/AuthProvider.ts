@@ -8,7 +8,6 @@ import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvi
 import { IToken, IUser } from '@db/models/Gateway'
 import { LogProvider } from '@core/providers/LogProvider'
 import { secret } from '@core/auth/configs/Secret'
-import { TokenExpiredError } from 'jsonwebtoken'
 
 const NAME = 'Auth Provider'
 const asyncRandomBytes = promisify(randomBytes)
@@ -130,7 +129,7 @@ export class AuthProvider {
 
   outsideExpiration(tokenEntry: IToken): boolean {
     const now = new Date()
-    const tokenExpiration = tokenEntry.issueDate.getMilliseconds() + tokenEntry.expiresIn.parseInt()
+    const tokenExpiration = tokenEntry.issueDate.getMilliseconds() + parseInt(tokenEntry.expiresIn)
     if (now.getMilliseconds() > tokenExpiration) return false
     else return true
   }

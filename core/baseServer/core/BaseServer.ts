@@ -10,6 +10,9 @@ import * as e from 'express'
 import cookieParser from 'cookie-parser'
 import compression from 'compression'
 
+//import helmet from 'helmet'
+//import csurf from 'csurf'
+
 import { LogProvider } from '@core/providers/LogProvider'
 import { ITimerMap, elapsedTimeInMs } from'@core/utils/Timer'
 import { PollRoute } from '@core/baseServer/routes/PollRoute'
@@ -131,6 +134,8 @@ export class BaseServer {
     this.app.set('port', this.port)
 
     this.app.use(e.json())
+    //this.app.use(helmet)
+    //this.app.use(csurf)
     this.app.use(e.urlencoded({ extended: false }))
     this.app.use(cookieParser())
     this.app.use(e.static(path.join(__dirname, 'public')))

@@ -14,8 +14,6 @@ then
   if [ "$replicateMongo" == "yes" ]
   then
     docker-compose -f docker-compose.mongoreplica.yml up --build -d
-    
-    sleep 10
 
     docker exec -it devdb_primary_cont /usr/scripts/mongo-init.sh
     docker exec -it devdb_primary_cont screen -S initMongo kill
@@ -32,8 +30,6 @@ then
   then
     docker-compose -f docker-compose.mongosingle.yml up --build -d
 
-    sleep 10
-
     docker exec -it devdb_primary_cont /usr/scripts/mongo-init.sh
     docker exec -it devdb_primary_cont screen -S initMongo kill
     docker exec -it devdb_primary_cont /usr/bin/mongod -f /usr/configs/mongo.single.conf --auth
@@ -41,9 +37,7 @@ then
     echo truthyInput
   fi
 
-  sleep 10
-
-  docker-compose -f docker-compose.dev.yml up --build --scale gateway=2 --scale query=3
+  docker-compose -f docker-compose.dev.yml up --build --scale devgateway=2 --scale devworker=3
 elif [ "$startServices" == "no" ]
 then
   echo "restarting services..."
@@ -58,9 +52,7 @@ then
     echo truthyInput
   fi
 
-  sleep 10
-
-  docker-compose -f docker-compose.dev.yml up --build --scale gateway=2 --scale query=3
+  docker-compose -f docker-compose.dev.yml up --build --scale devgateway=2 --scale devworker=3
 else
   echo truthyInput
 fi
