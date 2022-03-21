@@ -45,7 +45,7 @@ export class GatewayRoute extends BaseRoute {
     } catch (err) {
       res
         .status(404)
-        .send( { err, message: 'Error in Login Route' })
+        .send({ err: err.toString(), message: 'Error in Login Route' })
     }
   }
 
@@ -61,7 +61,7 @@ export class GatewayRoute extends BaseRoute {
       this.log.getFileSystem().error(err)
       res
         .status(404)
-        .send( { err, message: 'Error in Registration Route' })
+        .send({ err: err.toString(), message: 'Error in Registration Route' })
     }
   }
 
@@ -76,7 +76,7 @@ export class GatewayRoute extends BaseRoute {
     } catch (err) {
       res
         .status(404)
-        .send({ err, message: 'Error in Job Creation Route' })
+        .send({ err: err.toString(), message: 'Error in Job Creation Route' })
     }
   }
 }

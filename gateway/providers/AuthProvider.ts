@@ -86,7 +86,7 @@ export class AuthProvider {
         return { status: 'User Login Success', token: jwToken }
       } else { return new Error('Passwords do not match.') }
     } catch (err) {
-      this.log.getFileSystem().error(err)
+      this.log.error(err)
       throw err
     }
   }
