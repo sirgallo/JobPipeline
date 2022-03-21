@@ -38,7 +38,9 @@ export interface IToken extends Document {
   token: string
   refreshToken: string
   issueDate: Date
+  refreshIssueDate: Date
   expiresIn: string
+  refreshExpiresIn: string
 }
 
 export const OrganizationSchema: Schema<IOrganization> = new Schema({
@@ -70,5 +72,7 @@ export const TokenSchema: Schema<IToken> = new Schema({
   token: { type: String, required: true, unique: false },
   refreshToken: { type: String, required: true, unique: false },
   issueDate: { type: Date, index: true, required: true, unique: false },
-  expiresIn: { type: String, index: false, required: true, unique: false }
+  refreshIssueDate: { type: Date, index: true, required: true, unique: false },
+  expiresIn: { type: String, index: false, required: true, unique: false },
+  refreshExpiresIn: { type: String, index: false, required: true, unique: false }
 }, { collection: TokenCollectionName })

@@ -1,13 +1,9 @@
 import { IQueryJob } from '@db/models/Gateway'
 import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvider'
 import { MariaDBProvider } from '@core/providers/dataAccess/MariaDbProvider'
-import { JwtProvider } from '@core/auth/providers/JwtProvider'
 import { IGenericJob } from '@core/models/IJob'
 
-import { secret } from '@core/auth/configs/Secret'
-
 export class QueryProvider implements IGenericJob {
-  private jwt = new JwtProvider(secret)
   constructor(private gatewayMongoDb: GatewayMongooseProvider) {}
 
   async execute(argument: any): Promise<any> {
@@ -18,12 +14,10 @@ export class QueryProvider implements IGenericJob {
 
   async determineDb(job: string): Promise<any> {
     try {
-      //  only need query model
       const connModels = this.gatewayMongoDb.asObject().MQueryJob
 
       const queryJob: IQueryJob = await connModels.findOne({ jobId: job })
 
-      //  working
       if (queryJob.dbType === 'MariaDb') {
         const mariaDbClient = new MariaDBProvider(
           queryJob.payload.auth.host,

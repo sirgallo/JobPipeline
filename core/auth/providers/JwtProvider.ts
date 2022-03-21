@@ -8,6 +8,8 @@ import { minToMs } from '@core/utils/Utils'
 const NAME = 'JWT Provider'
 const SECRET = randomUUID(cryptoOptions)
 export const TIMESPAN = minToMs(15)
+const minInDay = 1440
+export const REFRESHTIMESPAN = minToMs(minInDay) * 30
 
 /*
   JWT provider, wrapping jsonwebtoken
@@ -23,11 +25,11 @@ export class JwtProvider {
     this.log.initFileLogger()
   }
 
-  async sign(userId: string, timeSpan = TIMESPAN): Promise<string> {
+  async sign(userId: string, secret?: string, timeSpan = TIMESPAN): Promise<string> {
     return await new Promise( (resolve, reject) => {
       try {
         this.log.getFileSystem().info('Signing JWT')
-        const signedJwt = sign({ id: userId }, this.secret, { expiresIn: timeSpan })
+        const signedJwt = sign({ id: userId }, secret || this.secret, { expiresIn: timeSpan })
         return resolve(signedJwt)
       } catch (err) {
         this.log.getFileSystem().error('Error signing JWT')
@@ -36,10 +38,10 @@ export class JwtProvider {
     })
   }
 
-  async verified(token: string): Promise<{ token: string, verified: boolean}> {
+  async verified(token: string, secret?: string): Promise<{ token: string, verified: boolean}> {
     return await new Promise( (resolve, reject) => {
       try {
-        const decodedJwt = verify(token, this.secret, { complete: true })
+        const decodedJwt = verify(token, secret || this.secret, { complete: true })
         if (decodedJwt) {
           return resolve({ token, verified: true })
         }
