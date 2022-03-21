@@ -41,7 +41,7 @@ export class GatewayRoute extends BaseRoute {
       this.log.getFileSystem().custom(gatewayRouteMappings.gateway.subRouteMapping.login.customConsoleMessages[0], true)
       res
         .status(200)
-        .send( { status: resp })
+        .send({ status: 'User Login Success', token: resp })
     } catch (err) {
       res
         .status(404)

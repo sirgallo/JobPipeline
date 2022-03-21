@@ -26,6 +26,7 @@ export class InitWorkerServer extends BaseServer {
 
       const determineDb = new QueryProvider(gatewayMongoDb)
       this.jobMQ.startRouter(determineDb)
+      this.workerLog.success(`Started router on worker with ${this.mqIp}`)
       
       this.run()
     } catch (err) {

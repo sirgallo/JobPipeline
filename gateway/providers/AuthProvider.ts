@@ -66,7 +66,7 @@ export class AuthProvider {
               this.log.info('Refresh Token Successfully updated')
             }
 
-            return { status: 'User Login Success', token: jwtEntry.token }
+            return jwtEntry.token
           } else {
             await connModels.MToken.findOneAndUpdate({
                 userId: currUserEntry.id 
@@ -83,7 +83,7 @@ export class AuthProvider {
           this.log.success(`Token updated with User Id: ${currUserEntry.id}`)
         } else { return new Error('Unknown error trying to find MToken entry.') }
         
-        return { status: 'User Login Success', token: jwToken }
+        return jwToken
       } else { return new Error('Passwords do not match.') }
     } catch (err) {
       this.log.error(err)
