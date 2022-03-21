@@ -2,17 +2,29 @@
 
 ## Design
 
-```
-        nginx
+``` 
+        client
           |
           |
-        gateway -- db
-          |
-          |
-      whatever you like?
-```
+  external load balancer
+        /    \
+       /      \
+    gateway  gateway ... ---> db
+      \        / 
+       \      /
+  internal load balancer
+        /  |  \
+       /   |   \
+  worker worker worker ...
+```    
 
 `gateway` acts as api gateway, handles auth
+`workers` handle jobs
+
+## Job Lifecycle
+
+`Not Started` -> `In Queue` -> `In Progress` -> `Finished`
+    ?--> `Failed`
 
 ## Requirements 
   - docker 
@@ -28,7 +40,7 @@
 ## Rebuild just api layer
 
 ```bash
-  docker-compose -f docker-compose.baseServer.yml up --build
+  docker-compose -f docker-compose.dev.yml up --build --scale devgateway=2 --scale devworker=3
 ```
 
 ## Data access providers in `core`
@@ -36,19 +48,17 @@
   - Mongo (with `mongoose`)
   - MariaDb (with `mysql2`)
 
-## Remove from production
-
-  - mongo layer
-
-## Clean up docker containers
-
-```bash
-docker stop $(docker ps -a -q)
-docker rm  $(docker ps -a -q)
+## ZMQ Provider in `core`
+```
+ --> Check out MQProvider for run down of `ROUTER/DEALER` connections
 ```
 
-## Clean up docker on filesystem
+## Remove from production
+  - mongo layer
+
+## Remove all Docker Containers and Volumes, Clean System
 
 ```bash
-docker system prune -a -f
+  chmod 700 ./stopandremovealldockercontainers.sh
+  ./stopandremovealldockercontainers.sh
 ```
