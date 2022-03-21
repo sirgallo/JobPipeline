@@ -25,6 +25,16 @@
 
 It is advised to deploy without `docker`, but if necessary, deploy `docker-compose` file to multiple machines behind load balancer. Deploy `mongo` cluster as standalone. Machines are designed to be stateless.
 
+``` 
+        client
+          |
+          |
+  external load balancer
+        /    \
+       /      \
+   docker-compose ... ---> db
+```    
+
 ## Job Lifecycle
 
 `Not Started` -> `In Queue` -> `In Progress` -> `Finished`
