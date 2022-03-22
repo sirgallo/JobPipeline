@@ -80,7 +80,6 @@ export class MQProvider {
       //  frame 1 -> server id
       //  frame 2 -> message
       for await (const [ message ] of this.sock) {
-        //const strHeader = .toString(strEncoding)
         const jsonBody: ISockRequest = JSON.parse(message.toString(strEncoding))
         const queueEntry: IInternalJobQueueMessage = {
           jobId: jsonBody.message,
