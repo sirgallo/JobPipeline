@@ -99,8 +99,9 @@ export class LoadBalanceProvider {
       this.lbLog.info(`Worker Machines: ${[...this.knownWorkerMachines]}`)
       
       if (body) {
+        const index = await this.availableMachines(this.knownClientsMap)
         await this.clientsock.send([
-          [...this.knownClientMachines][await this.availableMachines(this.knownWorkersMap)],
+          [...this.knownClientMachines][index],
           body
         ])
       }
@@ -115,8 +116,9 @@ export class LoadBalanceProvider {
 
         try {
           if (job.jobId) { 
+            const index = await this.availableMachines(this.knownWorkersMap)
             await this.workersock.send([ 
-              [...this.knownWorkerMachines][await this.availableMachines(this.knownClientsMap)],
+              [...this.knownWorkerMachines][index],
               strBody 
             ])
           }
