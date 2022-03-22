@@ -11,6 +11,7 @@ import {
   LifeCycle
 } from '@core/models/IMq'
 import { IGenericJob } from '@core/models/IJob'
+import { Stream } from 'stream'
 
 const NAME = 'MQ Provider'
 const strEncoding = 'utf-8'
@@ -45,17 +46,15 @@ const strEncoding = 'utf-8'
   Completely non-blocking
 */
 
-const dealerQueueEventName = 'dealerQueueUpdate'
 const routerQueueEventName = 'routerQueueUpdate'
+
+const discoveryJob = 'systemDiscovery'
 
 export class MQProvider {
   isQueue = false
   sock: Dealer | Router
-
+  
   private routerQueue: SimpleQueueProvider
-  private dealerQueue: SimpleQueueProvider
-  private inProgressJobCounter = 0
-  private knownMachines: Set<string> = new Set()
 
   private log = new LogProvider(NAME)
   constructor(
@@ -67,7 +66,7 @@ export class MQProvider {
 
   async startRouter(jobClassReq: IGenericJob) {
     try {
-      this.sock = new Router()
+      this.sock = new Dealer()
       this.sock.routingId = randomUUID(cryptoOptions)
       //  connect to load balancer, each dealer will still have a unique id
       this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
@@ -77,23 +76,24 @@ export class MQProvider {
       this.isQueue = true
       
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
-      this.setIntervalQueue(this.routerQueue, 200)
+      MQProvider.setIntervalQueue(this.routerQueue, 200)
 
+      await this.sock.send(JSON.stringify({ status: 'alive' }))
       //  message comes in as buffer with two frames
       //  frame 1 -> server id
       //  frame 2 -> message
-      for await (const [ header, body ] of this.sock) {
-        const strHeader = header.toString(strEncoding)
-        const jsonBody: ISockRequest = JSON.parse(body.toString(strEncoding))
+      for await (const [ message ] of this.sock) {
+        //const strHeader = .toString(strEncoding)
+        const jsonBody: ISockRequest = JSON.parse(message.toString(strEncoding))
         const queueEntry: IInternalJobQueueMessage = {
           jobId: jsonBody.message,
-          header: strHeader,
+          header: this.sock.routingId,
           body: jsonBody
         }
 
         //  need to pass identity in first frame
         //  router stores id of dealer in hash table
-        await this.sock.send(this.formattedReturnObj(this.sock.routingId, true, jsonBody.message, strHeader, jsonBody, 'In Queue'))
+        await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, jsonBody.message, this.sock.routingId, jsonBody, 'In Queue'))
         this.routerQueue.push(queueEntry)
         //  on incoming message, emit event to queue --> event driven
         this.routerQueue.emitEvent()
@@ -106,19 +106,15 @@ export class MQProvider {
       this.sock = new Dealer()
       //  generate unique id on socket for identification
       this.sock.routingId = randomUUID(cryptoOptions)
-      await this.sock.bind(`${this.protocol}://*:${this.port}`)
+      this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
 
-      this.routerQueue = new SimpleQueueProvider(dealerQueueEventName)
-      this.routerQueueOn(jobClassResp)
-      this.isQueue = true
-
+      await this.sock.send(JSON.stringify({ status: 'alive' }))
       //  listen for response from router
-      for await (const [ message ] of this.sock) {
-        const formattedMessage: IInternalLivelinessResponse = JSON.parse(message.toString(strEncoding))
-        this.knownMachines.add(formattedMessage.routingId)
+      for await (const message of this.sock) {
+        //console.log('here', JSON.stringify(message))
+        const formattedMessage: IInternalLivelinessResponse = JSON.parse(message.toString())
         this.log.info(JSON.stringify(formattedMessage, null, 2))
-
-        await jobClassResp.execute(formattedMessage)
+        if (formattedMessage.job) await jobClassResp.execute(formattedMessage)
       }
     } catch (err) { throw err }
   }
@@ -137,42 +133,33 @@ export class MQProvider {
       if (this.routerQueue.getQueue().length > 0) {
         const job: IInternalJobQueueMessage = this.routerQueue.pop()
         try {
-          await this.sock.send(this.formattedReturnObj(this.sock.routingId, true, job.jobId, job.header, job.body, 'In Progress'))
+          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, job.body, 'In Progress'))
           const results = await jobClassReq.execute(job.body.message)
 
-          await this.sock.send(this.formattedReturnObj(this.sock.routingId, true, job.jobId, job.header, results, 'Finished'))
+          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, results, 'Finished'))
           this.log.info(`Finished job with hash: ${job.body.message}`)
         } catch (err) { 
           this.log.error(`Job failed with hash: ${job.body.message}`)
-          await this.sock.send(this.formattedReturnObj(this.sock.routingId, true, job.jobId, job.header, { error: err.toString() }, 'Failed')) 
+          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, { error: err.toString() }, 'Failed')) 
         }
       }
     })
   }
 
-  private dealerQueueOn(jobClassRep: IGenericJob) {
-    this.dealerQueue.queueUpdate.on(this.dealerQueue.eventName, async () => {
-
-    })
-  }
-
-  private formattedReturnObj(routingId: string, alive: boolean, job: string, strHeader: string, jsonBody: any, lifeCycle?: LifeCycle): Array<string> {
+  static formattedReturnObj(routingId: string, alive: boolean, node: string, job: string, strHeader: string, jsonBody: any, lifeCycle?: LifeCycle): string {
     const livenessResp: IInternalLivelinessResponse = {
       routingId: routingId,
       alive: alive,
-      node: this.address,
+      node: node,
       job: job,
       message: jsonBody,
       ...(lifeCycle ? { lifeCycle: lifeCycle } : {})
     }
 
-    return [
-      strHeader,
-      JSON.stringify(livenessResp)
-    ]
+    return JSON.stringify(livenessResp)
   }
 
-  private setIntervalQueue(queue: SimpleQueueProvider, timeout: number) {
+  static setIntervalQueue(queue: SimpleQueueProvider, timeout: number) {
     setInterval(() => queue.emitEvent(), timeout)
   }
 

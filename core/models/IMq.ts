@@ -1,8 +1,7 @@
 export interface IMqOpts {
-  address?: string
+  domain: string
   port: string
   topic: string
-  containerNetwork?: string
 }
 
 export interface IInternalJobQueueMessage {
@@ -14,6 +13,8 @@ export interface IInternalJobQueueMessage {
 export interface ISockRequest {
   message: any
 }
+
+//export interface IInternalLivelinessRequest {}
 
 export interface IInternalLivelinessResponse {
   routingId: string

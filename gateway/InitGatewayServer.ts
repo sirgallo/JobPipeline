@@ -9,7 +9,6 @@ import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvi
 import { gatewayPublisherConfig } from '@gateway/configs/GatewayPublisherConfig'
 import { gatewayRouteMappings } from '@gateway/configs/GatewayRouteMappings'
 import { mongoDbs, mongoTextConfig } from '@gateway/configs/MongoTestConfig'
-import { jobMqNetwork } from '@gateway/configs/JobMqNetwork'
 import { UpdateJobProvider } from './providers/UpdateJobProvider'
 
 export class InitGatewayServer extends BaseServer {
@@ -19,9 +18,8 @@ export class InitGatewayServer extends BaseServer {
   
   async startServer() {
     try {
-     
       this.mqIp = BaseServer.setIp(this.gatewayLog)
-      this.jobMQ = new MQProvider(this.mqIp, gatewayPublisherConfig.port, jobMqNetwork)
+      this.jobMQ = new MQProvider(this.mqIp, gatewayPublisherConfig.port, gatewayPublisherConfig.domain)
 
       const gatewayMongoDb: GatewayMongooseProvider = new GatewayMongooseProvider(mongoTextConfig, mongoDbs.devModels.name)
       await gatewayMongoDb.initDefault()

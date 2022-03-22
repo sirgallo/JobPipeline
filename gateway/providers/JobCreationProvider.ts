@@ -33,6 +33,7 @@ export class JobCreationProvider {
       if (! AuthProvider.withinExpiration(currUserToken.issueDate, currUserToken.expiresIn)) {
         const refreshToken = await this.jwt.verified(currUserToken.refreshToken, refreshSecret)
         if (refreshToken.verified && AuthProvider.withinExpiration(currUserToken.refreshIssueDate, currUserToken.refreshExpiresIn)) {
+          this.log.info('Refresh Token verified and within expiration, updating web token.')
           const newJwt = await this.jwt.sign(currUserToken.userId)
           await connModels.MToken.findOneAndUpdate({
               userId: currUserToken.userId
@@ -49,6 +50,8 @@ export class JobCreationProvider {
         const { token, verified } = await this.jwt.verified(request.origToken)
       
         if (verified) {
+          this.log.info('Token Verified and Within Expiration, Creating Job.')
+          
           return this.createNewJob(request, token, connModels)
         } else throw new Error(`[${NAME}]: Could Not Verify Json Web Token.`)
       }
@@ -59,7 +62,6 @@ export class JobCreationProvider {
   }
 
   private async createNewJob(request: IGatewayAddJobRequest, token: string, connModels): Promise<{ jobId: string }> {
-    this.log.info('Token Verified and Within Expiration, Creating Job.')
     const newJobId = randomUUID(cryptoOptions)
 
     const newJobModel = new connModels.MQueryJob({

@@ -18,6 +18,7 @@ import { ITimerMap, elapsedTimeInMs } from'@core/utils/Timer'
 import { PollRoute } from '@core/baseServer/routes/PollRoute'
 
 import { routeMappings } from '@core/baseServer/configs/RouteMappings'
+import helmet from 'helmet'
 
 config({ path: '.env' })
 
@@ -140,6 +141,7 @@ export class BaseServer {
     this.app.use(cookieParser())
     this.app.use(e.static(path.join(__dirname, 'public')))
     this.app.use(compression())
+    this.app.use(helmet())
   }
 
   private initRoutes() {

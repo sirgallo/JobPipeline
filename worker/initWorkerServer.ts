@@ -5,13 +5,12 @@ import { MQProvider } from '@core/providers/MQProvider'
 
 import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvider'
 import { mongoDbs, mongoTextConfig } from '@gateway/configs/MongoTestConfig'
-import { gatewayPublisherConfig } from '@gateway/configs/GatewayPublisherConfig'
-import { jobMqNetwork } from '@gateway/configs/JobMqNetwork'
+import { workerMQConfig } from '@worker/configs/WorkerMQConfig'
 import { QueryProvider } from '@worker/providers/QueryProvider'
 
 export class InitWorkerServer extends BaseServer {
   private workerLog: LogProvider = new LogProvider(this.name)
-  private jobMQ: MQProvider
+  private workerMQ: MQProvider
   private mqIp: string
   
   async startServer() {
@@ -22,10 +21,10 @@ export class InitWorkerServer extends BaseServer {
       this.workerLog.success('Initialized Db Models')
 
       this.mqIp = BaseServer.setIp(this.workerLog)
-      this.jobMQ = new MQProvider(this.mqIp, gatewayPublisherConfig.port, jobMqNetwork)
+      this.workerMQ = new MQProvider(this.mqIp, workerMQConfig.port, workerMQConfig.domain)
 
       const determineDb = new QueryProvider(gatewayMongoDb)
-      this.jobMQ.startRouter(determineDb)
+      this.workerMQ.startRouter(determineDb)
       this.workerLog.success(`Started router on worker with ${this.mqIp}`)
       
       this.run()

@@ -24,6 +24,7 @@
       "@dbconfigs/*": ["db/configs/*"],
       "@db/*": ["db/*"],
       "@gateway/*": ["gateway/*"],
+      "@loadbalancer/*": ["loadbalancer/*"],
       "@worker/*": ["worker/*"]
     }
   }

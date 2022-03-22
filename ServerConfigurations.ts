@@ -15,5 +15,11 @@ export const serverConfiguration: ServerConfiguration<Record<string, IServerConf
     name: 'Worker API',
     numOfCpus: 1,
     version: '0.1'
-  }
+  },
+  lb: {
+    port: 5678,
+    name: 'Load Balancer',
+    numOfCpus: 1,
+    version: '0.1'
+  },
 }

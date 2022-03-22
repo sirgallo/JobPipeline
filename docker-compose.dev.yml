@@ -1,5 +1,17 @@
 version: "3"
 services:
+  nginx: 
+    image: nginx:latest
+    container_name: nginx_dev_cont
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports: 
+      - '5681:5681'
+    networks:
+      dev_app_layer:
+      dev_gateway_layer:
+    depends_on:
+      - devgateway
   devgateway:
     image: dev_gateway_img
     build:
@@ -7,6 +19,8 @@ services:
       dockerfile: ./gateway/Dockerfile
     ports:
       - '5680'
+    expose:
+      - '8765'
     environment:
       - NODE_ENV=docker
       - NODE_OPTIONS="--max-old-space-size=4096"
@@ -14,8 +28,6 @@ services:
       - gatewaydata:/usr/src/data
     networks:
       dev_api_layer:
-        aliases:
-          - gatewaypush
       dev_db_layer:
       dev_gateway_layer:
     restart: always
@@ -24,18 +36,33 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  nginx: 
-    image: nginx:latest
-    container_name: nginx_dev_cont
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports: 
-      - '5678:5678'
-    networks:
-      dev_app_layer:
-      dev_gateway_layer:
     depends_on:
-      - devgateway
+      - devlb
+  devlb: 
+    image: dev_lb_img
+    build:
+      context: .
+      dockerfile: ./loadbalancer/Dockerfile
+    ports:
+      - '5678'
+    expose:
+      - '8765'
+      - '8766'
+    environment:
+      - NODE_ENV=docker
+      - NODE_OPTIONS="--max-old-space-size=4096"
+    volumes:
+      - lbdata:/usr/src/data
+    networks:
+      dev_api_layer:
+        aliases:
+          - joblb
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:5678/poll || kill 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
   devworker:
     image: dev_worker_img
     build:
@@ -44,7 +71,7 @@ services:
     ports:
       - '5679'
     expose:
-      - '8765'
+      - '8766'
     environment:
       - NODE_ENV=docker
       - NODE_OPTIONS="--max-old-space-size=4096"
@@ -61,6 +88,7 @@ services:
       retries: 3
     depends_on:
       - devgateway
+      - devlb
 networks:
   dev_api_layer: 
     driver: bridge
@@ -73,5 +101,6 @@ networks:
 volumes:
   allocatordata:
   gatewaydata:
+  lbdata:
   workerdata:
   devdbsingledata:

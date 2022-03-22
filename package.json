@@ -5,6 +5,7 @@
     "build:all": "grunt --gruntfile gruntfile.js",
     "start:baseServer": "node ./dist/core/baseServer/StartService.js --color",
     "start:gateway": "node ./dist/gateway/StartGatewayService.js --color",
+    "start:loadbalancer": "node ./dist/loadbalancer/StartLoadBalancerService.js --color",
     "start:worker": "node ./dist/worker/StartWorkerService.js --color"
   },
   "author": "Sir Gallo",
@@ -52,6 +53,7 @@
     "@dbconfigs": "./dist/configs",
     "@db": "./dist/db",
     "@gateway": "./dist/gateway",
+    "@loadbalancer": "./dist/loadbalancer",
     "@worker": "./dist/worker"
   }
 }
