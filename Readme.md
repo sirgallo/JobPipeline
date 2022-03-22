@@ -76,3 +76,9 @@ It is advised to deploy without `docker`, but if necessary, deploy `docker-compo
   chmod 700 ./stopandremovealldockercontainers.sh
   ./stopandremovealldockercontainers.sh
 ```
+
+## Connect local Mongo
+
+```bash
+  mongosh --host 127.0.0.1:27018 -u devModelsUser -p devModelsTestPass devModels
+```

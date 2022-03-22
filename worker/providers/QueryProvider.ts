@@ -2,8 +2,12 @@ import { IQueryJob } from '@db/models/Gateway'
 import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvider'
 import { MariaDBProvider } from '@core/providers/dataAccess/MariaDbProvider'
 import { IGenericJob } from '@core/models/IJob'
+import { LogProvider } from '@core/providers/LogProvider'
+
+const NAME = 'Query Provider'
 
 export class QueryProvider implements IGenericJob {
+  private log = new LogProvider(NAME)
   constructor(private gatewayMongoDb: GatewayMongooseProvider) {}
 
   async execute(argument: any): Promise<any> {
@@ -28,7 +32,7 @@ export class QueryProvider implements IGenericJob {
         )
         await mariaDbClient.getConn()
         const result = mariaDbClient.execute(queryJob.payload.query.query, 'query')
-        console.log(JSON.stringify(result, null, 2))
+        this.log.debug(JSON.stringify(result, null, 2))
         
         await mariaDbClient.execute(null, 'close')
 

@@ -1,4 +1,4 @@
-import { Router, Dealer } from 'zeromq'
+import { Dealer } from 'zeromq'
 import { randomUUID } from 'crypto'
 
 import { cryptoOptions } from '@core/crypto/CryptoOptions'
@@ -11,7 +11,6 @@ import {
   LifeCycle
 } from '@core/models/IMq'
 import { IGenericJob } from '@core/models/IJob'
-import { Stream } from 'stream'
 
 const NAME = 'MQ Provider'
 const strEncoding = 'utf-8'
@@ -52,7 +51,7 @@ const discoveryJob = 'systemDiscovery'
 
 export class MQProvider {
   isQueue = false
-  sock: Dealer | Router
+  sock: Dealer
   
   private routerQueue: SimpleQueueProvider
 
@@ -110,11 +109,14 @@ export class MQProvider {
 
       await this.sock.send(JSON.stringify({ status: 'alive' }))
       //  listen for response from router
-      for await (const message of this.sock) {
-        //console.log('here', JSON.stringify(message))
-        const formattedMessage: IInternalLivelinessResponse = JSON.parse(message.toString())
-        this.log.info(JSON.stringify(formattedMessage, null, 2))
-        if (formattedMessage.job) await jobClassResp.execute(formattedMessage)
+      for await (const [ message ] of this.sock) {
+        this.log.debug(`here ${message.toString()}`)
+        const jsonMessage = JSON.parse(message.toString())
+        this.log.debug(JSON.stringify(jsonMessage))
+        if (jsonMessage.body) {
+          this.log.info(JSON.stringify(jsonMessage.body, null, 2))
+          await jobClassResp.execute(jsonMessage.body)
+        }
       }
     } catch (err) { throw err }
   }
