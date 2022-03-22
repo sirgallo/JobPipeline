@@ -15,6 +15,28 @@ const strEncoding = 'utf-8'
 const loadBalanceEventName = 'lbQueueUpdate'
 const retEventName = 'retEventName'
 
+/*
+  Custom Load Balancer
+
+  Design:
+
+            clients ...
+                |
+                |
+  add to known clients if not discovered yet
+            add job to queue
+      distribute to known workers
+
+  Utilizing 2 separate sockets, with the frontend socket
+  relaying to the backend socket
+
+  Worker and Client unique identifiers are stored in memory
+
+  Workers and Clients express if they are busy or not, and if 
+  available, are selected at random to either begin a new job
+  or return a response
+*/
+
 export class LoadBalanceProvider {
   clientsock: Router
   workersock: Router
