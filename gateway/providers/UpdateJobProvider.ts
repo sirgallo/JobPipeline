@@ -19,13 +19,18 @@ export class UpdateJobProvider implements IGenericJob {
   async updateJobOnResp(job: IInternalLivelinessResponse): Promise<any> {
     try {
       const connModels = this.gatewayMongoDb.asObject()
-      const updatedQueryJob: IQueryJob = await connModels.MQueryJob.findOneAndUpdate({
+      const currentQueryJob: IQueryJob = await connModels.MQueryJob.findOne({ jobId: job.job })
+      if (currentQueryJob.lifeCycle === 'Failed' || currentQueryJob.lifeCycle === 'Finished') {
+        this.log.info('Job already completed.')
+      } else {
+        const updatedQueryJob: IQueryJob = await connModels.MQueryJob.findOneAndUpdate({
           jobId: job.job
         }, {
           $set: { lifeCycle: job.lifeCycle }
         })
-      
-      this.log.info(`Updated Job ${updatedQueryJob.jobId} to lifecycle --> ${job.lifeCycle}`)
+
+        this.log.info(`Updated Job ${updatedQueryJob.jobId} to lifecycle --> ${job.lifeCycle}`)
+      }
 
       return true
     } catch (err) { throw err }

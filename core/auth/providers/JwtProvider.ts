@@ -3,13 +3,13 @@ import { sign, verify } from 'jsonwebtoken'
 
 import { LogProvider } from '@core/providers/LogProvider'
 import { cryptoOptions } from '@core/crypto/CryptoOptions'
-import { minToMs } from '@core/utils/Utils'
+import { toMs } from '@core/utils/Utils'
 
 const NAME = 'JWT Provider'
 const SECRET = randomUUID(cryptoOptions)
-export const TIMESPAN = minToMs(15)
+export const TIMESPAN = toMs.min(15)
 const minInDay = 1440
-export const REFRESHTIMESPAN = minToMs(minInDay) * 30
+export const REFRESHTIMESPAN = toMs.min(minInDay) * 30
 
 /*
   JWT provider, wrapping jsonwebtoken

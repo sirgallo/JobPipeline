@@ -14,7 +14,6 @@ export interface ISockRequest {
   message: any
 }
 
-//export interface IInternalLivelinessRequest {}
 
 export interface IInternalLivelinessResponse {
   routingId: string
@@ -24,5 +23,12 @@ export interface IInternalLivelinessResponse {
   message: any
   lifeCycle?: LifeCycle
 }
+
+export interface IAvailableMachine {
+  status: MachineStatus
+  validated: Date
+}
+
+export type MachineStatus = 'Ready' | 'Busy'
 
 export type LifeCycle = 'Not Started' | 'In Queue' | 'In Progress' | 'Finished' | 'Failed'

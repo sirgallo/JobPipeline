@@ -31,11 +31,11 @@ services:
       dev_db_layer:
       dev_gateway_layer:
     restart: always
-    healthcheck:
-      test: curl --fail http://localhost:5680/poll || kill 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #  test: curl --fail http://localhost:5680/poll || kill 1
+    #  interval: 30s
+    #  timeout: 10s
+    #  retries: 3
     depends_on:
       - devlb
   devlb: 
@@ -81,11 +81,11 @@ services:
         dev_api_layer:
         dev_db_layer:
     restart: always
-    healthcheck:
-      test: curl --fail http://localhost:5679/poll || kill 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    #healthcheck:
+    #  test: curl --fail http://localhost:5679/poll || kill 1
+    #  interval: 30s
+    #  timeout: 10s
+    #  retries: 3
     depends_on:
       - devgateway
       - devlb

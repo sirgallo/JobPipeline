@@ -75,24 +75,32 @@ export class MQProvider {
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
       MQProvider.setIntervalQueue(this.routerQueue, 200)
 
-      await this.sock.send(JSON.stringify({ status: 'alive' }))
+      await this.sock.send(
+        JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
+      )
       //  message comes in as buffer with two frames
       //  frame 1 -> server id
       //  frame 2 -> message
       for await (const [ message ] of this.sock) {
-        const jsonBody: ISockRequest = JSON.parse(message.toString(strEncoding))
-        const queueEntry: IInternalJobQueueMessage = {
-          jobId: jsonBody.message,
-          header: this.sock.routingId,
-          body: jsonBody
-        }
+        const jsonBody = JSON.parse(message.toString(strEncoding))
+        if (jsonBody.message) {
+          const queueEntry: IInternalJobQueueMessage = {
+            jobId: jsonBody.message,
+            header: this.sock.routingId,
+            body: jsonBody
+          }
 
-        //  need to pass identity in first frame
-        //  router stores id of dealer in hash table
-        await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, jsonBody.message, this.sock.routingId, jsonBody, 'In Queue'))
-        this.routerQueue.push(queueEntry)
-        //  on incoming message, emit event to queue --> event driven
-        this.routerQueue.emitEvent()
+          this.routerQueue.push(queueEntry)
+          //  on incoming message, emit event to queue --> event driven
+          this.routerQueue.emitEvent()
+
+          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, jsonBody.message, this.sock.routingId, jsonBody, 'In Queue'))
+        } else if (jsonBody.heartbeat) {
+          // heartbeat
+          await this.sock.send(
+            JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
+          )
+        }
       }
     } catch (err) { throw err }
   }
@@ -104,13 +112,20 @@ export class MQProvider {
       this.sock.routingId = randomUUID(cryptoOptions)
       this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
 
-      await this.sock.send(JSON.stringify({ status: 'alive' }))
+      await this.sock.send(
+        JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
+      )
       //  listen for response from router
       for await (const [ message ] of this.sock) {
         const jsonMessage = JSON.parse(message.toString())
         if (jsonMessage.body) {
-          this.log.info(JSON.stringify(jsonMessage.body, null, 2))
+          // perform operation
           await jobClassResp.execute(jsonMessage.body)
+        } else if (jsonMessage.heartbeat) {
+          // heartbeat
+          await this.sock.send(
+            JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
+          )
         }
       }
     } catch (err) { throw err }

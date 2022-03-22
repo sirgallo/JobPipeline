@@ -38,7 +38,7 @@ export class GatewayRoute extends BaseRoute {
     try {
       const resp = await this.auth.authenticate(user)
 
-      this.log.getFileSystem().custom(gatewayRouteMappings.gateway.subRouteMapping.login.customConsoleMessages[0], true)
+      this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.login.customConsoleMessages[0], true)
       res
         .status(200)
         .send({ status: 'User Login Success', token: resp })
@@ -53,12 +53,11 @@ export class GatewayRoute extends BaseRoute {
     const newUser: IGatewayRegisterRequest = req.body
     try {
       const jwToken = await this.auth.register(newUser)
-      this.log.getFileSystem().custom(gatewayRouteMappings.gateway.subRouteMapping.register.customConsoleMessages[0], true)
+      this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.register.customConsoleMessages[0], true)
       res
         .status(200)
         .send({ status: 'User Registration Success', token: jwToken })
     } catch (err) {
-      this.log.getFileSystem().error(err)
       res
         .status(404)
         .send({ err: err.toString(), message: 'Error in Registration Route' })
@@ -69,7 +68,7 @@ export class GatewayRoute extends BaseRoute {
     const newJob: IGatewayAddJobRequest = req.body
     try {
       const resp = await this.jobCreate.add(newJob)
-      this.log.getFileSystem().custom(gatewayRouteMappings.gateway.subRouteMapping.addJob.customConsoleMessages[0], true)
+      this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.addJob.customConsoleMessages[0], true)
       res
         .status(200)
         .send({ status: 'Job Successfully Added', jobId: resp.jobId })

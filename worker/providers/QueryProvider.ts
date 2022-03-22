@@ -3,6 +3,7 @@ import { GatewayMongooseProvider } from '@gateway/providers/GatewayMongooseProvi
 import { MariaDBProvider } from '@core/providers/dataAccess/MariaDbProvider'
 import { IGenericJob } from '@core/models/IJob'
 import { LogProvider } from '@core/providers/LogProvider'
+import { toMs, sleep } from '@core/utils/Utils'
 
 const NAME = 'Query Provider'
 
@@ -18,6 +19,7 @@ export class QueryProvider implements IGenericJob {
 
   async determineDb(job: string): Promise<any> {
     try {
+      await sleep(toMs.min(1))
       const connModels = this.gatewayMongoDb.asObject().MQueryJob
 
       const queryJob: IQueryJob = await connModels.findOne({ jobId: job })
