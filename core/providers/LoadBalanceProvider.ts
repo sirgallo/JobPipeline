@@ -203,14 +203,12 @@ export class LoadBalanceProvider {
     this.lbLog.info('Begin Heartbeating...')
     while (true) {
       for (const machine of this.getMachines(this.knownWorkersMap)) {
-        this.lbLog.debug(`Validating machine with ID: ${machine}`)
         await this.workersock.send([
           machine,
           JSON.stringify({ heartbeat: true })
         ])
       }
       for (const machine of this.getMachines(this.knownClientsMap)) {
-        this.lbLog.debug(`Validating machine with ID: ${machine}`)
         await this.clientsock.send([
           machine,
           JSON.stringify({ heartbeat: true })
