@@ -7,7 +7,6 @@ import { SimpleQueueProvider } from '@core/providers/SimpleQueueProvider'
 import {
   IInternalJobQueueMessage,
   IInternalLivelinessResponse,
-  ISockRequest,
   LifeCycle
 } from '@core/models/IMq'
 import { IGenericJob } from '@core/models/IJob'
