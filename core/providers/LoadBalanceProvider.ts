@@ -115,7 +115,6 @@ export class LoadBalanceProvider {
     await this.workersock.bind(`${this.protocol}://*:${this.workerPort}`)
 
     for await (const [ header, body ] of this.workersock) {
-      this.lbLog.debug(`header ${header.toString(strEncoding)} body ${body.toString(strEncoding)}`)
       const strHeader = header.toString(strEncoding)
       const jsonBody = JSON.parse(body.toString(strEncoding))
 
@@ -158,10 +157,7 @@ export class LoadBalanceProvider {
   private retQueueOn() {
     this.retQueue.queueUpdate.on(this.retQueue.eventName, async () => {
       if (this.retQueue.getQueue().length > 0) {
-        this.lbLog.debug('here?')
         const returnObj = JSON.stringify(this.retQueue.pop())
-
-        this.lbLog.debug(returnObj)
 
         try {
           const index = await this.availableMachines(this.knownClientsMap)

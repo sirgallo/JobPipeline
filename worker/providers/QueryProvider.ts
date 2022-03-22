@@ -32,11 +32,10 @@ export class QueryProvider implements IGenericJob {
         )
         await mariaDbClient.getConn()
         const result = mariaDbClient.execute(queryJob.payload.query.query, 'query')
-        this.log.debug(JSON.stringify(result, null, 2))
         
         await mariaDbClient.execute(null, 'close')
 
-        return true
+        return result
       } else if (queryJob.dbType === 'Athena') {
         // stub
 

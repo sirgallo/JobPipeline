@@ -47,8 +47,6 @@ const strEncoding = 'utf-8'
 
 const routerQueueEventName = 'routerQueueUpdate'
 
-const discoveryJob = 'systemDiscovery'
-
 export class MQProvider {
   isQueue = false
   sock: Dealer
@@ -110,9 +108,7 @@ export class MQProvider {
       await this.sock.send(JSON.stringify({ status: 'alive' }))
       //  listen for response from router
       for await (const [ message ] of this.sock) {
-        this.log.debug(`here ${message.toString()}`)
         const jsonMessage = JSON.parse(message.toString())
-        this.log.debug(JSON.stringify(jsonMessage))
         if (jsonMessage.body) {
           this.log.info(JSON.stringify(jsonMessage.body, null, 2))
           await jobClassResp.execute(jsonMessage.body)
@@ -134,6 +130,7 @@ export class MQProvider {
     this.routerQueue.queueUpdate.on(this.routerQueue.eventName, async () => {
       if (this.routerQueue.getQueue().length > 0) {
         const job: IInternalJobQueueMessage = this.routerQueue.pop()
+        
         try {
           await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, job.body, 'In Progress'))
           const results = await jobClassReq.execute(job.body.message)

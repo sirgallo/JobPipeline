@@ -18,7 +18,6 @@ export class UpdateJobProvider implements IGenericJob {
 
   async updateJobOnResp(job: IInternalLivelinessResponse): Promise<any> {
     try {
-      this.log.debug(JSON.stringify(job, null, 2))
       const connModels = this.gatewayMongoDb.asObject()
       const updatedQueryJob: IQueryJob = await connModels.MQueryJob.findOneAndUpdate({
           jobId: job.job
