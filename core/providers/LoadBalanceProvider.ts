@@ -188,7 +188,7 @@ export class LoadBalanceProvider {
             ])
           }
         } catch (err) { 
-          this.lbLog.error(`Job failed with hash: ${job.jobId} to a Worker Machine.`)
+          this.lbLog.error(`Failed pushing job with hash: ${job.jobId} to a Worker Machine.`)
         }
       }
     })
