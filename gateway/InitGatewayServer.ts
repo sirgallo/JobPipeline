@@ -27,7 +27,7 @@ export class InitGatewayServer extends BaseServer {
       this.gatewayLog.success('Initialized Db Models')
 
       const updateJobProvider = new UpdateJobProvider(gatewayMongoDb)
-      this.jobMQ.startDealer(updateJobProvider)
+      this.jobMQ.startClient(updateJobProvider)
       this.gatewayLog.success(`Started Dealer on Gateway ${this.mqIp}`)
 
       const gatewayRoute = new GatewayRoute(gatewayRouteMappings.gateway.name, gatewayMongoDb, this.jobMQ)

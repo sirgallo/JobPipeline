@@ -77,7 +77,7 @@ export class JobCreationProvider {
     this.log.success('Successfully Added New Job.')
 
     this.log.info('Pushing Job to Worker Machine.')
-    await this.jobmq.pushDealer(newJobId)
+    await this.jobmq.pushClient(newJobId)
 
     return { jobId: newJob.jobId }
   }

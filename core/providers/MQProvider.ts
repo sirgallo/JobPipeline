@@ -24,7 +24,7 @@ const strEncoding = 'utf-8'
     --> on http request to an http route, pass request to router
     --> relay to 1 of n routers
   
-  Router --> binds single dealer or a load balancer for many dealers, m to n relationship
+  Router --> binds single or many dealers/load balancer, m to n relationship
     --> on message from dealer, push element onto queue
       --> pop first element in queue and perform operation
         --> once complete, send message as response in return to Dealer
@@ -35,22 +35,24 @@ const strEncoding = 'utf-8'
         \      /
          \    /
           \  /
-        LB-Proxy
+          Router
+         Heartbeat
+          Router
           /   \
          /     \
         /       \
-      Router   Router ...
+      Dealer   Dealer ...
 
   Completely non-blocking
 */
 
-const routerQueueEventName = 'routerQueueUpdate'
+const workerQueueEventName = 'workerQueueUpdate'
 
 export class MQProvider {
   isQueue = false
   sock: Dealer
   
-  private routerQueue: SimpleQueueProvider
+  private workerQueue: SimpleQueueProvider
 
   private log = new LogProvider(NAME)
   constructor(
@@ -60,26 +62,27 @@ export class MQProvider {
     private protocol = 'tcp'
   ) {}
 
-  async startRouter(jobClassReq: IGenericJob) {
+  async startWorker(jobClassReq: IGenericJob) {
     try {
       this.sock = new Dealer()
       this.sock.routingId = randomUUID(cryptoOptions)
       //  connect to load balancer, each dealer will still have a unique id
       this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
 
-      this.routerQueue = new SimpleQueueProvider(routerQueueEventName)
-      this.routerQueueOn(jobClassReq)
+      this.workerQueue = new SimpleQueueProvider(workerQueueEventName)
+      this.workerQueueOn(jobClassReq)
       this.isQueue = true
       
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
-      MQProvider.setIntervalQueue(this.routerQueue, 200)
+      MQProvider.setIntervalQueue(this.workerQueue, 200)
 
       await this.sock.send(
         JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
       )
-      //  message comes in as buffer with two frames
-      //  frame 1 -> server id
-      //  frame 2 -> message
+
+      /*
+        Need to know message format beforehand, we are the ones designing the messages passed between machines
+      */
       for await (const [ message ] of this.sock) {
         const jsonBody = JSON.parse(message.toString(strEncoding))
         if (jsonBody.message) {
@@ -89,9 +92,9 @@ export class MQProvider {
             body: jsonBody
           }
 
-          this.routerQueue.push(queueEntry)
+          this.workerQueue.push(queueEntry)
           //  on incoming message, emit event to queue --> event driven
-          this.routerQueue.emitEvent()
+          this.workerQueue.emitEvent()
 
           await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, jsonBody.message, this.sock.routingId, jsonBody, 'In Queue'))
         } else if (jsonBody.heartbeat) {
@@ -104,7 +107,7 @@ export class MQProvider {
     } catch (err) { throw err }
   }
 
-  async startDealer(jobClassResp: IGenericJob) {
+  async startClient(jobClassResp: IGenericJob) {
     try {
       this.sock = new Dealer()
       //  generate unique id on socket for identification
@@ -114,7 +117,7 @@ export class MQProvider {
       await this.sock.send(
         JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
       )
-      //  listen for response from router
+      //  listen for response from worker
       for await (const [ message ] of this.sock) {
         const jsonMessage = JSON.parse(message.toString())
         if (jsonMessage.body) {
@@ -130,7 +133,7 @@ export class MQProvider {
     } catch (err) { throw err }
   }
 
-  async pushDealer(newMessage: any) {
+  async pushClient(newMessage: any) {
     try {
       this.log.info('Pushing new message through dealer to worker...')
       //  this is how we can use http routes, pass request from http route on to the socket
@@ -139,10 +142,10 @@ export class MQProvider {
   }
 
   //  jobFunction needs to be asynchronous
-  private routerQueueOn(jobClassReq: IGenericJob) {
-    this.routerQueue.queueUpdate.on(this.routerQueue.eventName, async () => {
-      if (this.routerQueue.getQueue().length > 0) {
-        const job: IInternalJobQueueMessage = this.routerQueue.pop()
+  private workerQueueOn(jobClassReq: IGenericJob) {
+    this.workerQueue.queueUpdate.on(this.workerQueue.eventName, async () => {
+      if (this.workerQueue.getQueue().length > 0) {
+        const job: IInternalJobQueueMessage = this.workerQueue.pop()
         
         try {
           await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, job.body, 'In Progress'))

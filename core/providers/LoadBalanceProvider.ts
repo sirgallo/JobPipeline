@@ -62,6 +62,7 @@ export class LoadBalanceProvider {
     private protocol = 'tcp'
   ) {}
 
+  //  Start both frontend and backend facing sockets and associated queues
   async start() {
     try {
       this.clientsock = new Router()
