@@ -14,11 +14,7 @@ import {
 import { MQProvider } from '@core/providers/MQProvider'
 import { sleep, toMs } from '@core/utils/Utils'
 
-
 const NAME = 'Load Balance Provider'
-const strEncoding = 'utf-8'
-const loadBalanceEventName = 'lbQueueUpdate'
-const retEventName = 'retEventName'
 
 const MAXRETRIES = 5
 
@@ -26,6 +22,11 @@ const ONSTARTUP = 45 // in sec
 const TIMEOUT = 500 // in ms
 const SENDTIMEOUT = 30 // in ms
 const INTERVAL = 30 // in sec
+
+const strEncoding = 'utf-8'
+
+const loadBalanceEventName = 'lbQueueUpdate'
+const retEventName = 'retEventName'
 
 /*
   Custom Load Balancer
@@ -135,10 +136,10 @@ export class LoadBalanceProvider {
 
       if (queueEntry.jobId) {
         const returnObj: IInternalLivelinessResponse = {
-          alive: true,
           node: this.address,
           job: queueEntry.jobId,
           message: queueEntry.body,
+          status: 'On LB',
           lifeCycle: 'In Queue'
         }
 
@@ -183,7 +184,7 @@ export class LoadBalanceProvider {
         
         this.knownWorkersMap[strHeader].heartbeat(strHeader, 'Worker')
       } else {
-        this.knownWorkersMap[strHeader].status = 'Ready'
+        this.knownWorkersMap[strHeader].status = jsonBody['status']
         this.knownWorkersMap[strHeader].validated = new Date()
         this.knownWorkersMap[strHeader].connAttempts = 0
       }

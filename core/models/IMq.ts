@@ -15,10 +15,10 @@ export interface ISockRequest {
 }
 
 export interface IInternalLivelinessResponse {
-  alive: boolean
   node: string
   job: string
   message: any
+  status: MachineStatus
   lifeCycle?: LifeCycle
 }
 
@@ -29,8 +29,13 @@ export interface IAvailableMachine {
   connAttempts: number
 }
 
+export interface IHeartBeat {
+  routerId: string
+  healthy: Liveliness
+  status: MachineStatus
+}
+
+export type Liveliness = 'Alive' | 'Dead'
 export type MachineTypes = 'Client' | 'Worker'
-
-export type MachineStatus = 'Ready' | 'Busy'
-
+export type MachineStatus = 'Ready' | 'Busy' | 'On LB'
 export type LifeCycle = 'Not Started' | 'In Queue' | 'In Progress' | 'Finished' | 'Failed'

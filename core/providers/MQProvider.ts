@@ -5,9 +5,11 @@ import { cryptoOptions } from '@core/crypto/CryptoOptions'
 import { LogProvider } from '@core/providers/LogProvider'
 import { SimpleQueueProvider } from '@core/providers/SimpleQueueProvider'
 import {
+  IHeartBeat,
   IInternalJobQueueMessage,
   IInternalLivelinessResponse,
-  LifeCycle
+  LifeCycle,
+  MachineStatus
 } from '@core/models/IMq'
 import { IGenericJob } from '@core/models/IJob'
 
@@ -54,7 +56,8 @@ const workerQueueEventName = 'workerQueueUpdate'
 export class MQProvider {
   isQueue = false
   sock: Dealer
-  
+
+  private machineStatus: MachineStatus = 'Ready'
   private workerQueue: SimpleQueueProvider
 
   private log = new LogProvider(NAME)
@@ -79,9 +82,13 @@ export class MQProvider {
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
       MQProvider.setIntervalQueue(this.workerQueue, 200)
 
-      await this.sock.send(
-        JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
-      )
+      const healthCheck: IHeartBeat = { 
+        routerId: this.sock.routingId, 
+        healthy: 'Alive',
+        status: this.machineStatus 
+      }
+
+      await this.sock.send(JSON.stringify(healthCheck))
 
       /*
         Need to know message format beforehand, we are the ones designing the messages passed between machines
@@ -100,9 +107,7 @@ export class MQProvider {
           this.workerQueue.emitEvent()
         } else if (jsonBody.heartbeat) {
           // heartbeat
-          await this.sock.send(
-            JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
-          )
+          await this.sock.send(JSON.stringify(healthCheck))
         }
       }
     } catch (err) { throw err }
@@ -115,9 +120,13 @@ export class MQProvider {
       this.sock.routingId = randomUUID(cryptoOptions)
       this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
 
-      await this.sock.send(
-        JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
-      )
+      const healthCheck: IHeartBeat = { 
+        routerId: this.sock.routingId, 
+        healthy: 'Alive',
+        status: this.machineStatus 
+      }
+
+      await this.sock.send(JSON.stringify(healthCheck))
 
       //  listen for response from worker
       for await (const [ message ] of this.sock) {
@@ -127,9 +136,7 @@ export class MQProvider {
           await jobClassResp.execute(jsonMessage.body)
         } else if (jsonMessage.heartbeat) {
           // heartbeat
-          await this.sock.send(
-            JSON.stringify({ routerId: this.sock.routingId, status: 'alive' })
-          )
+          await this.sock.send(JSON.stringify(healthCheck))
         }
       }
     } catch (err) { throw err }
@@ -151,30 +158,32 @@ export class MQProvider {
         
         try {
           await this.sock.send(
-            MQProvider.formattedReturnObj(true, this.address, job.jobId, job.body, 'In Progress')
+            MQProvider.formattedReturnObj(this.address, job.jobId, job.body, this.machineStatus, 'In Progress')
           )
+          
           const results = await jobClassReq.execute(job.body.message)
 
           await this.sock.send(
-            MQProvider.formattedReturnObj(true, this.address, job.jobId, results, 'Finished')
+            MQProvider.formattedReturnObj(this.address, job.jobId, results, this.machineStatus, 'Finished')
           )
+
           this.log.info(`Finished job with hash: ${job.body.message}`)
         } catch (err) { 
           this.log.error(`Job failed with hash: ${job.body.message}`)
           await this.sock.send(
-            MQProvider.formattedReturnObj(true, this.address, job.jobId, { error: err.toString() }, 'Failed')
+            MQProvider.formattedReturnObj(this.address, job.jobId, { error: err.toString() }, this.machineStatus, 'Failed')
           ) 
         }
       }
     })
   }
 
-  static formattedReturnObj(alive: boolean, node: string, job: string, jsonBody: any, lifeCycle?: LifeCycle): string {
+  static formattedReturnObj(node: string, job: string, jsonBody: any, status: MachineStatus, lifeCycle?: LifeCycle): string {
     const livenessResp: IInternalLivelinessResponse = {
-      alive: alive,
       node: node,
       job: job,
       message: jsonBody,
+      status: status,
       ...(lifeCycle ? { lifeCycle: lifeCycle } : {})
     }
 
