@@ -118,7 +118,7 @@ export class MQProvider {
       await this.sock.send(
         JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
       )
-      
+
       //  listen for response from worker
       for await (const [ message ] of this.sock) {
         const jsonMessage = JSON.parse(message.toString(strEncoding))
@@ -128,7 +128,7 @@ export class MQProvider {
         } else if (jsonMessage.heartbeat) {
           // heartbeat
           await this.sock.send(
-            JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
+            JSON.stringify({ routerId: this.sock.routingId, status: 'alive' })
           )
         }
       }
