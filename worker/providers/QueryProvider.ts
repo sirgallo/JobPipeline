@@ -19,7 +19,7 @@ export class QueryProvider implements IGenericJob {
 
   async determineDb(job: string): Promise<any> {
     try {
-      await sleep(toMs.min(1))
+      await sleep(toMs.min(5))
       const connModels = this.gatewayMongoDb.asObject().MQueryJob
 
       const queryJob: IQueryJob = await connModels.findOne({ jobId: job })

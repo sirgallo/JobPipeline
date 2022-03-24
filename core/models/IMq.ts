@@ -37,5 +37,5 @@ export interface IHeartBeat {
 
 export type Liveliness = 'Alive' | 'Dead'
 export type MachineTypes = 'Client' | 'Worker'
-export type MachineStatus = 'Ready' | 'Busy' | 'On LB'
+export type MachineStatus = 'Ready' | 'Busy'
 export type LifeCycle = 'Not Started' | 'In Queue' | 'In Progress' | 'Finished' | 'Failed'

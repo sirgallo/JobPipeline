@@ -20,7 +20,6 @@ const MAXRETRIES = 5
 
 const ONSTARTUP = 45 // in sec
 const TIMEOUT = 500 // in ms
-const SENDTIMEOUT = 30 // in ms
 const INTERVAL = 30 // in sec
 
 const strEncoding = 'utf-8'
@@ -62,6 +61,8 @@ export class LoadBalanceProvider {
 
   private knownClientsMap: Record<string, IAvailableMachine> = {}
   private knownWorkersMap: Record<string, IAvailableMachine> = {}
+
+  private isRunning = false
   
   private lbLog = new LogProvider(NAME)
   constructor(
@@ -139,7 +140,7 @@ export class LoadBalanceProvider {
           node: this.address,
           job: queueEntry.jobId,
           message: queueEntry.body,
-          status: 'On LB',
+          status: 'Ready',
           lifeCycle: 'In Queue'
         }
 
@@ -147,9 +148,6 @@ export class LoadBalanceProvider {
 
         this.retQueue.push(body)
         this.retQueue.emitEvent()
-
-        //  Weird timing issue, this resolves issue if Queue is empty
-        await sleep(SENDTIMEOUT)
 
         this.jobQueue.push(queueEntry)
         this.jobQueue.emitEvent()
@@ -223,7 +221,10 @@ export class LoadBalanceProvider {
   //  handle randomly distributing a response to a gateway machine
   private retQueueOn() {
     this.retQueue.queueUpdate.on(this.retQueue.eventName, async () => {
-      if (this.retQueue.getQueue().length > 0) {
+      //  read one message at a time from the queue, solves timing issue on responses
+      if (! this.isRunning && this.retQueue.getQueue().length > 0) {
+        this.isRunning = true
+
         const returnObj = JSON.stringify(this.retQueue.pop())
 
         try {
@@ -232,6 +233,8 @@ export class LoadBalanceProvider {
             [...this.knownClientMachines][clientIndex],
             returnObj
           ])
+
+          this.isRunning = false
         } catch (err) { 
           this.lbLog.error('Error Pushing Updates to Client')
         }
@@ -319,13 +322,13 @@ export class LoadBalanceProvider {
   }
 
   //  calculate current timeout based on current attempt
-  private getCurrentTimeout(connAttempts: number) {
+  private getCurrentTimeout(connAttempts: number): number {
     if (connAttempts === 0) return INTERVAL
-    else this.exponentialBackoffTimeout(connAttempts) 
+    else return this.exponentialBackoffTimeout(connAttempts) 
   }
 
   //  exponentially back off for each machine retry
-  private exponentialBackoffTimeout(connAttempts: number) {
+  private exponentialBackoffTimeout(connAttempts: number): number {
     return (2 * connAttempts * TIMEOUT) / 1000
   }
 }
