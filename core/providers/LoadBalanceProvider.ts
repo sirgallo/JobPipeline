@@ -129,7 +129,7 @@ export class LoadBalanceProvider {
 
         this.knownClientsMap[strHeader].heartbeat(strHeader, 'Client')
       } else {
-        this.knownClientsMap[strHeader].status = 'Ready'
+        this.knownClientsMap[strHeader].status = jsonBody['status']
         this.knownClientsMap[strHeader].validated = new Date()
         this.knownClientsMap[strHeader].connAttempts = 0
       }
@@ -300,7 +300,7 @@ export class LoadBalanceProvider {
   //  Get a random machine index from the available machines
   private selectMachine(machines: Record<string, IAvailableMachine>): number {
     const totalAvailableMachines = Object.keys(machines)
-      .map(key => machines[key].status === 'Ready' ? key : null)
+      .map(key => machines[key].status === 'Ready' && ! this.outsideTimeout(machines[key].validated, TIMEOUT) ? key : null)
       .filter(el => el)
       .length
 
@@ -308,6 +308,14 @@ export class LoadBalanceProvider {
     const roundedIndex = Math.floor(randomValue)
     
     return roundedIndex
+  }
+
+  private outsideTimeout(dateToTest: Date, timeout: number): boolean {
+    const now = new Date()
+    const pastTimeout = dateToTest.getTime() + timeout
+
+    if (now.getTime() > pastTimeout) return true
+    else return false
   }
 
   //  calculate current timeout based on current attempt
