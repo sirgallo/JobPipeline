@@ -14,9 +14,7 @@ export interface ISockRequest {
   message: any
 }
 
-
 export interface IInternalLivelinessResponse {
-  routingId: string
   alive: boolean
   node: string
   job: string
@@ -27,7 +25,11 @@ export interface IInternalLivelinessResponse {
 export interface IAvailableMachine {
   status: MachineStatus
   validated: Date
+  heartbeat: (machineId: string, machineType: MachineTypes) => Promise<void>
+  connAttempts: number
 }
+
+export type MachineTypes = 'Client' | 'Worker'
 
 export type MachineStatus = 'Ready' | 'Busy'
 

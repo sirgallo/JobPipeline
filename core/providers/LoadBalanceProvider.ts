@@ -7,10 +7,13 @@ import { SimpleQueueProvider } from '@core/providers/SimpleQueueProvider'
 import {
   IAvailableMachine,
   IInternalJobQueueMessage,
+  IInternalLivelinessResponse,
   ISockRequest,
+  MachineTypes,
 } from '@core/models/IMq'
 import { MQProvider } from '@core/providers/MQProvider'
 import { sleep, toMs } from '@core/utils/Utils'
+
 
 const NAME = 'Load Balance Provider'
 const strEncoding = 'utf-8'
@@ -18,6 +21,8 @@ const loadBalanceEventName = 'lbQueueUpdate'
 const retEventName = 'retEventName'
 
 const ONSTARTUP = 45
+const TIMEOUT = 500
+const MAXRETRIES = 5
 const INTERVAL = 30
 
 /*
@@ -57,6 +62,7 @@ export class LoadBalanceProvider {
   
   private lbLog = new LogProvider(NAME)
   constructor(
+    private address: string,
     private clientPort: string,
     private workerPort: string,
     private protocol = 'tcp'
@@ -79,8 +85,6 @@ export class LoadBalanceProvider {
 
       this.startClientRouter()
       this.startWorkerRouter()
-
-      this.heartbeat()
     } catch (err) {
       this.lbLog.error(err)
       throw err
@@ -113,22 +117,44 @@ export class LoadBalanceProvider {
       if (! this.knownClientsMap[strHeader]) { 
         this.knownClientsMap[strHeader] = {
           status: 'Ready',
-          validated: new Date()
+          validated: new Date(),
+          heartbeat: this.heartbeat.bind(this),
+          connAttempts: 0
         }
+
+        this.knownClientsMap[strHeader].heartbeat(strHeader, 'Client')
       } else {
-        this.knownClientsMap[strHeader] = {
-          status: 'Ready',
-          validated: new Date()
-        }
+        this.knownClientsMap[strHeader].status = 'Ready'
+        this.knownClientsMap[strHeader].validated = new Date()
+        this.knownClientsMap[strHeader].connAttempts = 0
       }
 
+      
       await this.clientsock.send([ 
         strHeader, 
         body 
       ])
 
-      this.jobQueue.push(queueEntry)
-      this.jobQueue.emitEvent()
+      if (queueEntry.jobId) {
+        const returnObj: IInternalLivelinessResponse = {
+          alive: true,
+          node: this.address,
+          job: queueEntry.jobId,
+          message: queueEntry.body,
+          lifeCycle: 'In Queue'
+        }
+
+        const strBody = JSON.stringify({ body: returnObj })
+
+        const clientIndex = this.selectMachine(this.knownClientsMap)
+        await this.clientsock.send([
+          [...this.knownClientMachines][clientIndex],
+          strBody
+        ])
+
+        this.jobQueue.push(queueEntry)
+        this.jobQueue.emitEvent()
+      }
     }
   }
 
@@ -152,13 +178,16 @@ export class LoadBalanceProvider {
       if (! this.knownWorkersMap[strHeader]) {
         this.knownWorkersMap[strHeader] = {
           status: 'Ready',
-          validated: new Date()
+          validated: new Date(),
+          heartbeat: this.heartbeat.bind(this),
+          connAttempts: 0
         }
+        
+        this.knownWorkersMap[strHeader].heartbeat(strHeader, 'Worker')
       } else {
-        this.knownWorkersMap[strHeader] = {
-          status: 'Ready',
-          validated: new Date()
-        }
+        this.knownWorkersMap[strHeader].status = 'Ready'
+        this.knownWorkersMap[strHeader].validated = new Date()
+        this.knownWorkersMap[strHeader].connAttempts = 0
       }
       
       if (jsonBody.job) {
@@ -178,15 +207,13 @@ export class LoadBalanceProvider {
         const strBody = JSON.stringify(job.body)
 
         try {
-          if (job.jobId) { 
-            const index = this.selectMachine(this.knownWorkersMap)
-            //  need to pass identity in first frame
-            //  router stores id of dealer in hash table
-            await this.workersock.send([ 
-              [...this.knownWorkerMachines][index],
-              strBody 
-            ])
-          }
+          const workerIndex = this.selectMachine(this.knownWorkersMap)
+          //  need to pass identity in first frame
+          //  router stores id of dealer in hash table
+          await this.workersock.send([ 
+            [...this.knownWorkerMachines][workerIndex],
+            strBody 
+          ])
         } catch (err) { 
           this.lbLog.error(`Failed pushing job with hash: ${job.jobId} to a Worker Machine.`)
         }
@@ -201,9 +228,9 @@ export class LoadBalanceProvider {
         const returnObj = JSON.stringify(this.retQueue.pop())
 
         try {
-          const index = this.selectMachine(this.knownClientsMap)
+          const clientIndex = this.selectMachine(this.knownClientsMap)
           await this.clientsock.send([
-            [...this.knownClientMachines][index],
+            [...this.knownClientMachines][clientIndex],
             returnObj
           ])
         } catch (err) { 
@@ -225,25 +252,49 @@ export class LoadBalanceProvider {
 
       On response, the map is updated to reflect the machine health
   */
-  private async heartbeat() {
+  private async heartbeat(machineId: string, machineType: MachineTypes) {
     this.lbLog.info(`Sleep on Startup for: ${ONSTARTUP}s`)
     await sleep(toMs.sec(ONSTARTUP))
-    this.lbLog.info('Begin Heartbeating...')
+    this.lbLog.info(`Begin Heartbeating for machine ${machineId}...`)
     
     while (true) {
-      for (const machine of this.getMachines(this.knownWorkersMap)) {
-        await this.workersock.send([
-          machine,
-          JSON.stringify({ heartbeat: true })
-        ])
+      if (machineType === 'Worker') {
+        const previousConnectionAttempts = this.knownWorkersMap[machineId].connAttempts
+        
+        if (previousConnectionAttempts > MAXRETRIES) {
+          this.lbLog.info(`Removing Worker Machine with Id: ${machineId}`)
+          this.knownWorkerMachines.delete(machineId)
+          delete this.knownWorkersMap[machineId]
+        } else {
+          this.knownWorkersMap[machineId].connAttempts++
+          const currTimeout = this.getCurrentTimeout(previousConnectionAttempts)
+          
+          await this.workersock.send([
+            machineId,
+            JSON.stringify({ heartbeat: true })
+          ])
+
+          await sleep(toMs.sec(currTimeout))
+        }
+      } else {
+        const previousConnectionAttempts = this.knownClientsMap[machineId].connAttempts
+
+        if (previousConnectionAttempts > MAXRETRIES) {
+          this.lbLog.info(`Removing Client Machine with Id: ${machineId}`)
+          this.knownClientMachines.delete(machineId)
+          delete this.knownClientsMap[machineId]
+        } else {
+          this.knownClientsMap[machineId].connAttempts++
+          const currTimeout = this.getCurrentTimeout(previousConnectionAttempts)
+
+          this.clientsock.send([
+            machineId,
+            JSON.stringify({ heartbeat: true })
+          ])
+
+          await sleep(toMs.sec(currTimeout))
+        }
       }
-      for (const machine of this.getMachines(this.knownClientsMap)) {
-        await this.clientsock.send([
-          machine,
-          JSON.stringify({ heartbeat: true })
-        ])
-      }
-      await sleep(toMs.sec(ONSTARTUP))
     }
   }
 
@@ -260,21 +311,12 @@ export class LoadBalanceProvider {
     return roundedIndex
   }
 
-  //  Return a list of previously validated machines
-  private getMachines(machines: Record<string, IAvailableMachine>): Array<string> {
-    const machinesToCheck = Object.keys(machines)
-      .map(key => this.outsideTimeout(machines[key].validated, INTERVAL) ? key : null)
-      .filter(el => el)
-    
-    return machinesToCheck
+  private getCurrentTimeout(connAttempts: number) {
+    if (connAttempts === 0) return INTERVAL
+    else this.exponentialBackoffTimeout(connAttempts) 
   }
 
-  //  Check the previous validation date against the current date
-  private outsideTimeout(dateToTest: Date, timeout: number): boolean {
-    const now = new Date()
-    const pastTimeout = dateToTest.getTime() + timeout
-    
-    if (now.getTime() > pastTimeout) return true
-    else return false
+  private exponentialBackoffTimeout(connAttempts: number) {
+    return (2 * connAttempts * TIMEOUT) / 1000
   }
 }

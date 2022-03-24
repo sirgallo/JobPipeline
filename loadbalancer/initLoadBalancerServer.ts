@@ -14,7 +14,7 @@ export class InitLoadBalancerServer extends BaseServer {
   async startServer() {
     try {
       this.mqIp = BaseServer.setIp(this.workerLog)
-      this.jobMQ = new LoadBalanceProvider(gatewayMQConfig.port, workerMQConfig.port)
+      this.jobMQ = new LoadBalanceProvider(this.mqIp, gatewayMQConfig.port, workerMQConfig.port)
 
       this.jobMQ.start()
       this.workerLog.success(`Started Load Balancer on ${this.mqIp}`)

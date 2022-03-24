@@ -37,11 +37,14 @@ const strEncoding = 'utf-8'
           \  /
           Router
          Heartbeat
+          Queue
+         Heartbeat
           Router
           /   \
          /     \
         /       \
       Dealer   Dealer ...
+      Queue    Queue
 
   Completely non-blocking
 */
@@ -95,8 +98,6 @@ export class MQProvider {
           this.workerQueue.push(queueEntry)
           //  on incoming message, emit event to queue --> event driven
           this.workerQueue.emitEvent()
-
-          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, jsonBody.message, this.sock.routingId, jsonBody, 'In Queue'))
         } else if (jsonBody.heartbeat) {
           // heartbeat
           await this.sock.send(
@@ -117,9 +118,10 @@ export class MQProvider {
       await this.sock.send(
         JSON.stringify({ routerId: this.sock.routingId, status: 'alive'})
       )
+      
       //  listen for response from worker
       for await (const [ message ] of this.sock) {
-        const jsonMessage = JSON.parse(message.toString())
+        const jsonMessage = JSON.parse(message.toString(strEncoding))
         if (jsonMessage.body) {
           // perform operation
           await jobClassResp.execute(jsonMessage.body)
@@ -148,22 +150,27 @@ export class MQProvider {
         const job: IInternalJobQueueMessage = this.workerQueue.pop()
         
         try {
-          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, job.body, 'In Progress'))
+          await this.sock.send(
+            MQProvider.formattedReturnObj(true, this.address, job.jobId, job.body, 'In Progress')
+          )
           const results = await jobClassReq.execute(job.body.message)
 
-          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, results, 'Finished'))
+          await this.sock.send(
+            MQProvider.formattedReturnObj(true, this.address, job.jobId, results, 'Finished')
+          )
           this.log.info(`Finished job with hash: ${job.body.message}`)
         } catch (err) { 
           this.log.error(`Job failed with hash: ${job.body.message}`)
-          await this.sock.send(MQProvider.formattedReturnObj(this.sock.routingId, true, this.address, job.jobId, job.header, { error: err.toString() }, 'Failed')) 
+          await this.sock.send(
+            MQProvider.formattedReturnObj(true, this.address, job.jobId, { error: err.toString() }, 'Failed')
+          ) 
         }
       }
     })
   }
 
-  static formattedReturnObj(routingId: string, alive: boolean, node: string, job: string, strHeader: string, jsonBody: any, lifeCycle?: LifeCycle): string {
+  static formattedReturnObj(alive: boolean, node: string, job: string, jsonBody: any, lifeCycle?: LifeCycle): string {
     const livenessResp: IInternalLivelinessResponse = {
-      routingId: routingId,
       alive: alive,
       node: node,
       job: job,
