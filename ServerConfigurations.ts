@@ -13,7 +13,7 @@ export const serverConfiguration: ServerConfiguration<Record<string, IServerConf
   worker: {
     port: 5679,
     name: 'Worker API',
-    numOfCpus: 4,
+    numOfCpus: 3,
     version: '0.1'
   },
   lb: {

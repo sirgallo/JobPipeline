@@ -62,7 +62,8 @@ export class LoadBalanceProvider {
   private knownClientsMap: Record<string, IAvailableMachine> = {}
   private knownWorkersMap: Record<string, IAvailableMachine> = {}
 
-  private isRunning = false
+  private isClientSockRunning = false
+  private isWorkerSockRunning = false
   
   private lbLog = new LogProvider(NAME)
   constructor(
@@ -84,8 +85,8 @@ export class LoadBalanceProvider {
       this.jobQueueOn()
       this.retQueueOn()
      
-      MQProvider.setIntervalQueue(this.jobQueue, 200)
-      MQProvider.setIntervalQueue(this.retQueue, 200)
+      MQProvider.setIntervalQueue(this.jobQueue, 0)
+      MQProvider.setIntervalQueue(this.retQueue, 0)
 
       this.startClientRouter()
       this.startWorkerRouter()
@@ -199,7 +200,9 @@ export class LoadBalanceProvider {
   //  handle randomly distributing jobs on new job event and stale jobs
   private jobQueueOn() {
     this.jobQueue.queueUpdate.on(this.jobQueue.eventName, async () => {
-      if (this.jobQueue.getQueue().length > 0) {
+      if (! this.isWorkerSockRunning && this.jobQueue.getQueue().length > 0) {
+        this.isWorkerSockRunning = true
+
         const job: IInternalJobQueueMessage = this.jobQueue.pop()
         const strBody = JSON.stringify(job.body)
 
@@ -211,7 +214,10 @@ export class LoadBalanceProvider {
             [...this.knownWorkerMachines][workerIndex],
             strBody 
           ])
+          
+          this.isWorkerSockRunning = false
         } catch (err) { 
+          this.isWorkerSockRunning = false
           this.lbLog.error(`Failed pushing job with hash: ${job.jobId} to a Worker Machine.`)
         }
       }
@@ -222,8 +228,8 @@ export class LoadBalanceProvider {
   private retQueueOn() {
     this.retQueue.queueUpdate.on(this.retQueue.eventName, async () => {
       //  read one message at a time from the queue, solves timing issue on responses
-      if (! this.isRunning && this.retQueue.getQueue().length > 0) {
-        this.isRunning = true
+      if (! this.isClientSockRunning && this.retQueue.getQueue().length > 0) {
+        this.isClientSockRunning = true
 
         const returnObj = JSON.stringify(this.retQueue.pop())
 
@@ -234,8 +240,9 @@ export class LoadBalanceProvider {
             returnObj
           ])
 
-          this.isRunning = false
+          this.isClientSockRunning = false
         } catch (err) { 
+          this.isClientSockRunning = false
           this.lbLog.error('Error Pushing Updates to Client')
         }
       }
@@ -267,6 +274,8 @@ export class LoadBalanceProvider {
           this.lbLog.info(`Removing Worker Machine with Id: ${machineId}`)
           this.knownWorkerMachines.delete(machineId)
           delete this.knownWorkersMap[machineId]
+
+          break
         } else {
           this.knownWorkersMap[machineId].connAttempts++
           const currTimeout = this.getCurrentTimeout(previousConnectionAttempts)
@@ -285,6 +294,8 @@ export class LoadBalanceProvider {
           this.lbLog.info(`Removing Client Machine with Id: ${machineId}`)
           this.knownClientMachines.delete(machineId)
           delete this.knownClientsMap[machineId]
+
+          break
         } else {
           this.knownClientsMap[machineId].connAttempts++
           const currTimeout = this.getCurrentTimeout(previousConnectionAttempts)

@@ -52,6 +52,7 @@ const strEncoding = 'utf-8'
 */
 
 const workerQueueEventName = 'workerQueueUpdate'
+const reqQueueEventName = 'reqQueueUpdate'
 
 export class MQProvider {
   isQueue = false
@@ -59,6 +60,9 @@ export class MQProvider {
 
   private machineStatus: MachineStatus = 'Ready'
   private workerQueue: SimpleQueueProvider
+  private reqQueue: SimpleQueueProvider
+
+  private sockAvailable = true
 
   private log = new LogProvider(NAME)
   constructor(
@@ -78,9 +82,12 @@ export class MQProvider {
       this.workerQueue = new SimpleQueueProvider(workerQueueEventName)
       this.workerQueueOn(jobClassReq)
       this.isQueue = true
-      
+
+      this.reqQueue = new SimpleQueueProvider(reqQueueEventName)
+      this.reqQueueOn()
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
-      MQProvider.setIntervalQueue(this.workerQueue, 200)
+      MQProvider.setIntervalQueue(this.workerQueue, 0)
+      MQProvider.setIntervalQueue(this.reqQueue, 0)
 
       const healthCheck: IHeartBeat = { 
         routerId: this.sock.routingId, 
@@ -120,6 +127,11 @@ export class MQProvider {
       this.sock.routingId = randomUUID(cryptoOptions)
       this.sock.connect(`${this.protocol}://${this.domain}:${this.port}`)
 
+      this.reqQueue = new SimpleQueueProvider(reqQueueEventName)
+      this.reqQueueOn()
+      
+      MQProvider.setIntervalQueue(this.reqQueue, 0)
+
       const healthCheck: IHeartBeat = { 
         routerId: this.sock.routingId, 
         healthy: 'Alive',
@@ -146,33 +158,47 @@ export class MQProvider {
     try {
       this.log.info('Pushing new message through dealer to worker...')
       //  this is how we can use http routes, pass request from http route on to the socket
-      await this.sock.send(JSON.stringify({ message: newMessage }))
+      this.reqQueue.push(JSON.stringify({ message: newMessage }))
     } catch (err) { throw err }
   }
 
   //  jobFunction needs to be asynchronous
   private workerQueueOn(jobClassReq: IGenericJob) {
     this.workerQueue.queueUpdate.on(this.workerQueue.eventName, async () => {
-      if (this.workerQueue.getQueue().length > 0) {
+      if (this.sockAvailable && this.workerQueue.getQueue().length > 0) {
         const job: IInternalJobQueueMessage = this.workerQueue.pop()
         
         try {
-          await this.sock.send(
-            MQProvider.formattedReturnObj(this.address, job.jobId, job.body, this.machineStatus, 'In Progress')
-          )
+          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, job.body, this.machineStatus, 'In Progress'))
+          this.reqQueue.emitEvent()
           
           const results = await jobClassReq.execute(job.body.message)
-
-          await this.sock.send(
-            MQProvider.formattedReturnObj(this.address, job.jobId, results, this.machineStatus, 'Finished')
-          )
+          
+          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, results, this.machineStatus, 'Finished'))
+          this.reqQueue.emitEvent()
 
           this.log.info(`Finished job with hash: ${job.body.message}`)
         } catch (err) { 
           this.log.error(`Job failed with hash: ${job.body.message}`)
-          await this.sock.send(
-            MQProvider.formattedReturnObj(this.address, job.jobId, { error: err.toString() }, this.machineStatus, 'Failed')
-          ) 
+          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, { error: err.toString() }, this.machineStatus, 'Failed'))
+          this.reqQueue.emitEvent()
+        }
+      }
+    })
+  }
+
+  private reqQueueOn() {
+    this.reqQueue.queueUpdate.on(this.reqQueue.eventName, async () => {
+      if (this.sockAvailable && this.reqQueue.getQueue().length > 0) {
+        this.sockAvailable = false
+        const jobUpdate: string = this.reqQueue.pop()
+        
+        try {
+          await this.sock.send(jobUpdate)
+          this.sockAvailable = true
+        } catch (err) { 
+          this.log.error('Return Queue failure on worker')
+          this.sockAvailable = true 
         }
       }
     })
