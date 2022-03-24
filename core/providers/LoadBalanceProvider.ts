@@ -20,10 +20,12 @@ const strEncoding = 'utf-8'
 const loadBalanceEventName = 'lbQueueUpdate'
 const retEventName = 'retEventName'
 
-const ONSTARTUP = 45
-const TIMEOUT = 500
 const MAXRETRIES = 5
-const INTERVAL = 30
+
+const ONSTARTUP = 45 // in sec
+const TIMEOUT = 500 // in ms
+const SENDTIMEOUT = 30 // in ms
+const INTERVAL = 30 // in sec
 
 /*
   Custom Load Balancer
@@ -144,13 +146,13 @@ export class LoadBalanceProvider {
           lifeCycle: 'In Queue'
         }
 
-        const strBody = JSON.stringify({ body: returnObj })
+        const body = { body: returnObj }
 
-        const clientIndex = this.selectMachine(this.knownClientsMap)
-        await this.clientsock.send([
-          [...this.knownClientMachines][clientIndex],
-          strBody
-        ])
+        this.retQueue.push(body)
+        this.retQueue.emitEvent()
+        
+        //  Weird timing issue, this resolves issue if Queue is empty
+        await sleep(SENDTIMEOUT)
 
         this.jobQueue.push(queueEntry)
         this.jobQueue.emitEvent()

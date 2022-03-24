@@ -22,6 +22,8 @@ export class UpdateJobProvider implements IGenericJob {
       const currentQueryJob: IQueryJob = await connModels.MQueryJob.findOne({ jobId: job.job })
       if (currentQueryJob.lifeCycle === 'Failed' || currentQueryJob.lifeCycle === 'Finished') {
         this.log.info('Job already completed.')
+      } else if (currentQueryJob.lifeCycle === 'In Progress' && job.lifeCycle === 'In Queue') {
+        this.log.info('Job already in progress.')
       } else {
         const updatedQueryJob: IQueryJob = await connModels.MQueryJob.findOneAndUpdate({
           jobId: job.job
