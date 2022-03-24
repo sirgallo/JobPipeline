@@ -115,6 +115,8 @@ export class LoadBalanceProvider {
         body: jsonBody
       }
 
+      this.lbLog.info(body.toString(strEncoding))
+
       this.knownClientMachines.add(strHeader)
       if (! this.knownClientsMap[strHeader]) { 
         this.knownClientsMap[strHeader] = {
@@ -131,12 +133,6 @@ export class LoadBalanceProvider {
         this.knownClientsMap[strHeader].connAttempts = 0
       }
 
-      
-      await this.clientsock.send([ 
-        strHeader, 
-        body 
-      ])
-
       if (queueEntry.jobId) {
         const returnObj: IInternalLivelinessResponse = {
           alive: true,
@@ -150,7 +146,7 @@ export class LoadBalanceProvider {
 
         this.retQueue.push(body)
         this.retQueue.emitEvent()
-        
+
         //  Weird timing issue, this resolves issue if Queue is empty
         await sleep(SENDTIMEOUT)
 
@@ -313,11 +309,13 @@ export class LoadBalanceProvider {
     return roundedIndex
   }
 
+  //  calculate current timeout based on current attempt
   private getCurrentTimeout(connAttempts: number) {
     if (connAttempts === 0) return INTERVAL
     else this.exponentialBackoffTimeout(connAttempts) 
   }
 
+  //  exponentially back off for each machine retry
   private exponentialBackoffTimeout(connAttempts: number) {
     return (2 * connAttempts * TIMEOUT) / 1000
   }
