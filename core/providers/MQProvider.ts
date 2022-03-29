@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { cryptoOptions } from '@core/crypto/CryptoOptions'
 import { LogProvider } from '@core/providers/LogProvider'
-import { SimpleQueueProvider } from '@core/providers/SimpleQueueProvider'
+import { SimpleQueueProvider, TLinkedNode } from '@core/providers/SimpleQueueProvider'
 import {
   IHeartBeat,
   IInternalJobQueueMessage,
@@ -62,8 +62,6 @@ export class MQProvider {
   private workerQueue: SimpleQueueProvider
   private reqQueue: SimpleQueueProvider
 
-  private sockAvailable = true
-
   private log = new LogProvider(NAME)
   constructor(
     private address: string, 
@@ -86,8 +84,8 @@ export class MQProvider {
       this.reqQueue = new SimpleQueueProvider(reqQueueEventName)
       this.reqQueueOn()
       //  check for stale jobs in queue on interval, in case no new jobs come in on sock
-      MQProvider.setIntervalQueue(this.workerQueue, 0)
-      MQProvider.setIntervalQueue(this.reqQueue, 0)
+      MQProvider.setIntervalQueue(this.workerQueue)
+      MQProvider.setIntervalQueue(this.reqQueue)
 
       const healthCheck: IHeartBeat = { 
         routerId: this.sock.routingId, 
@@ -109,9 +107,7 @@ export class MQProvider {
             body: jsonBody
           }
 
-          this.workerQueue.push(queueEntry)
-          //  on incoming message, emit event to queue --> event driven
-          this.workerQueue.emitEvent()
+          this.workerQueue.enqueue(new TLinkedNode(queueEntry))
         } else if (jsonBody.heartbeat) {
           // heartbeat
           await this.sock.send(JSON.stringify(healthCheck))
@@ -130,7 +126,7 @@ export class MQProvider {
       this.reqQueue = new SimpleQueueProvider(reqQueueEventName)
       this.reqQueueOn()
       
-      MQProvider.setIntervalQueue(this.reqQueue, 0)
+      MQProvider.setIntervalQueue(this.reqQueue)
 
       const healthCheck: IHeartBeat = { 
         routerId: this.sock.routingId, 
@@ -154,34 +150,35 @@ export class MQProvider {
     } catch (err) { throw err }
   }
 
-  async pushClient(newMessage: any) {
+  pushClient(newMessage: any) {
     try {
       this.log.info('Pushing new message through dealer to worker...')
       //  this is how we can use http routes, pass request from http route on to the socket
-      this.reqQueue.push(JSON.stringify({ message: newMessage }))
+      const message = JSON.stringify({ message: newMessage })
+      this.reqQueue.enqueue(new TLinkedNode(message))
     } catch (err) { throw err }
   }
 
   //  jobFunction needs to be asynchronous
   private workerQueueOn(jobClassReq: IGenericJob) {
     this.workerQueue.queueUpdate.on(this.workerQueue.eventName, async () => {
-      if (this.sockAvailable && this.workerQueue.getQueue().length > 0) {
-        const job: IInternalJobQueueMessage = this.workerQueue.pop()
+      if (this.workerQueue.length > 0) {
+        const job: IInternalJobQueueMessage = await this.workerQueue.dequeue()
         
         try {
-          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, job.body, this.machineStatus, 'In Progress'))
-          this.reqQueue.emitEvent()
+          const inProg = new TLinkedNode(MQProvider.formattedReturnObj(this.address, job.jobId, job.body, this.machineStatus, 'In Progress'))
+          this.reqQueue.enqueue(inProg)
           
           const results = await jobClassReq.execute(job.body.message)
-          
-          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, results, this.machineStatus, 'Finished'))
-          this.reqQueue.emitEvent()
+          const currResult = new TLinkedNode(MQProvider.formattedReturnObj(this.address, job.jobId, results, this.machineStatus, 'Finished'))
+          this.reqQueue.enqueue(currResult)
 
           this.log.info(`Finished job with hash: ${job.body.message}`)
         } catch (err) { 
           this.log.error(`Job failed with hash: ${job.body.message}`)
-          this.reqQueue.push(MQProvider.formattedReturnObj(this.address, job.jobId, { error: err.toString() }, this.machineStatus, 'Failed'))
-          this.reqQueue.emitEvent()
+
+          const errMsg = new TLinkedNode(MQProvider.formattedReturnObj(this.address, job.jobId, { error: err.toString() }, this.machineStatus, 'Failed'))
+          this.reqQueue.enqueue(errMsg)
         }
       }
     })
@@ -189,17 +186,12 @@ export class MQProvider {
 
   private reqQueueOn() {
     this.reqQueue.queueUpdate.on(this.reqQueue.eventName, async () => {
-      if (this.sockAvailable && this.reqQueue.getQueue().length > 0) {
-        this.sockAvailable = false
-        const jobUpdate: string = this.reqQueue.pop()
+      if (this.reqQueue.length > 0) {
+        const jobUpdate: string = await this.reqQueue.dequeue()
         
         try {
           await this.sock.send(jobUpdate)
-          this.sockAvailable = true
-        } catch (err) { 
-          this.log.error('Return Queue failure on worker')
-          this.sockAvailable = true 
-        }
+        } catch (err) { this.log.error('Return Queue failure on worker') }
       }
     })
   }
@@ -216,11 +208,7 @@ export class MQProvider {
     return JSON.stringify(livenessResp)
   }
 
-  static setIntervalQueue(queue: SimpleQueueProvider, timeout: number) {
+  static setIntervalQueue(queue: SimpleQueueProvider, timeout: number = 200) {
     setInterval(() => queue.emitEvent(), timeout)
-  }
-
-  close() {
-    this.sock.close()
   }
 }

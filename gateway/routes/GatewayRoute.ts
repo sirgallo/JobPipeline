@@ -37,8 +37,8 @@ export class GatewayRoute extends BaseRoute {
     const user: IGatewayLoginRequest = req.body
     try {
       const resp = await this.auth.authenticate(user)
-
       this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.login.customConsoleMessages[0], true)
+
       res
         .status(200)
         .send({ status: 'User Login Success', token: resp })
@@ -54,6 +54,7 @@ export class GatewayRoute extends BaseRoute {
     try {
       const jwToken = await this.auth.register(newUser)
       this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.register.customConsoleMessages[0], true)
+
       res
         .status(200)
         .send({ status: 'User Registration Success', token: jwToken })
@@ -69,6 +70,7 @@ export class GatewayRoute extends BaseRoute {
     try {
       const resp = await this.jobCreate.add(newJob)
       this.log.custom(gatewayRouteMappings.gateway.subRouteMapping.addJob.customConsoleMessages[0], true)
+      
       res
         .status(200)
         .send({ status: 'Job Successfully Added', jobId: resp.jobId })

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { cryptoOptions } from '@core/crypto/CryptoOptions'
 import { LogProvider } from '@core/providers/LogProvider'
-import { SimpleQueueProvider } from '@core/providers/SimpleQueueProvider'
+import { SimpleQueueProvider, TLinkedNode } from '@core/providers/SimpleQueueProvider'
 import {
   IAvailableMachine,
   IInternalJobQueueMessage,
@@ -61,9 +61,6 @@ export class LoadBalanceProvider {
 
   private knownClientsMap: Record<string, IAvailableMachine> = {}
   private knownWorkersMap: Record<string, IAvailableMachine> = {}
-
-  private isClientSockRunning = false
-  private isWorkerSockRunning = false
   
   private lbLog = new LogProvider(NAME)
   constructor(
@@ -85,8 +82,8 @@ export class LoadBalanceProvider {
       this.jobQueueOn()
       this.retQueueOn()
      
-      MQProvider.setIntervalQueue(this.jobQueue, 0)
-      MQProvider.setIntervalQueue(this.retQueue, 0)
+      MQProvider.setIntervalQueue(this.jobQueue)
+      MQProvider.setIntervalQueue(this.retQueue)
 
       this.startClientRouter()
       this.startWorkerRouter()
@@ -147,11 +144,8 @@ export class LoadBalanceProvider {
 
         const body = { body: returnObj }
 
-        this.retQueue.push(body)
-        this.retQueue.emitEvent()
-
-        this.jobQueue.push(queueEntry)
-        this.jobQueue.emitEvent()
+        this.retQueue.enqueue(new TLinkedNode(body))
+        this.jobQueue.enqueue(new TLinkedNode(queueEntry))
       }
     }
   }
@@ -190,9 +184,7 @@ export class LoadBalanceProvider {
       
       if (jsonBody.job) {
         const retEntry = { body: jsonBody }
-
-        this.retQueue.push(retEntry)
-        this.retQueue.emitEvent()
+        this.retQueue.enqueue(new TLinkedNode(retEntry))
       }
     }
   }
@@ -200,10 +192,8 @@ export class LoadBalanceProvider {
   //  handle randomly distributing jobs on new job event and stale jobs
   private jobQueueOn() {
     this.jobQueue.queueUpdate.on(this.jobQueue.eventName, async () => {
-      if (! this.isWorkerSockRunning && this.jobQueue.getQueue().length > 0) {
-        this.isWorkerSockRunning = true
-
-        const job: IInternalJobQueueMessage = this.jobQueue.pop()
+      if (this.jobQueue.length > 0) {
+        const job: IInternalJobQueueMessage = await this.jobQueue.dequeue()
         const strBody = JSON.stringify(job.body)
 
         try {
@@ -214,12 +204,7 @@ export class LoadBalanceProvider {
             [...this.knownWorkerMachines][workerIndex],
             strBody 
           ])
-          
-          this.isWorkerSockRunning = false
-        } catch (err) { 
-          this.isWorkerSockRunning = false
-          this.lbLog.error(`Failed pushing job with hash: ${job.jobId} to a Worker Machine.`)
-        }
+        } catch (err) { this.lbLog.error(`Failed pushing job with hash: ${job.jobId} to a Worker Machine.`) }
       }
     })
   }
@@ -228,10 +213,8 @@ export class LoadBalanceProvider {
   private retQueueOn() {
     this.retQueue.queueUpdate.on(this.retQueue.eventName, async () => {
       //  read one message at a time from the queue, solves timing issue on responses
-      if (! this.isClientSockRunning && this.retQueue.getQueue().length > 0) {
-        this.isClientSockRunning = true
-
-        const returnObj = JSON.stringify(this.retQueue.pop())
+      if (this.retQueue.length > 0) {
+        const returnObj = JSON.stringify(await this.retQueue.dequeue())
 
         try {
           const clientIndex = this.selectMachine(this.knownClientsMap)
@@ -239,12 +222,7 @@ export class LoadBalanceProvider {
             [...this.knownClientMachines][clientIndex],
             returnObj
           ])
-
-          this.isClientSockRunning = false
-        } catch (err) { 
-          this.isClientSockRunning = false
-          this.lbLog.error('Error Pushing Updates to Client')
-        }
+        } catch (err) { this.lbLog.error('Error Pushing Updates to Client') }
       }
     })
   }

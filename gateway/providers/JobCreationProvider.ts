@@ -44,7 +44,7 @@ export class JobCreationProvider {
               }
             })
           
-          return this.createNewJob(request, newJwt, connModels)
+          return await this.createNewJob(request, newJwt, connModels)
         } else throw new Error('Supplied token and refresh token not valid or within Expiration.')
       } else {
         const { token, verified } = await this.jwt.verified(request.origToken)
@@ -52,7 +52,7 @@ export class JobCreationProvider {
         if (verified) {
           this.log.info('Token Verified and Within Expiration, Creating Job.')
           
-          return this.createNewJob(request, token, connModels)
+          return await this.createNewJob(request, token, connModels)
         } else throw new Error(`[${NAME}]: Could Not Verify Json Web Token.`)
       }
     } catch (err) {
@@ -77,7 +77,7 @@ export class JobCreationProvider {
     this.log.success('Successfully Added New Job.')
 
     this.log.info('Pushing Job to Worker Machine.')
-    await this.jobmq.pushClient(newJobId)
+    this.jobmq.pushClient(newJobId)
 
     return { jobId: newJob.jobId }
   }
